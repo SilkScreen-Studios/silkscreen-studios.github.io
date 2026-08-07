@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Silk's Random Image Generator</title>
+    <title>Truly Random Internet Image</title>
     <style>
         body {
             margin: 0;
@@ -15,7 +15,7 @@
             background-color: #111;
             color: #fff;
             font-family: system-ui, sans-serif;
-            user-select: none; /* Prevents text selection highlight when tapping rapidly on mobile */
+            user-select: none;
             -webkit-user-select: none;
             cursor: pointer;
         }
@@ -31,7 +31,7 @@
             max-height: 70vh;
             border-radius: 8px;
             object-fit: contain;
-            pointer-events: none; /* Allows taps directly on top of the image to register on body */
+            pointer-events: none;
         }
         #status {
             margin-top: 15px;
@@ -71,22 +71,17 @@
         const status = document.getElementById('status');
         const viewCountEl = document.getElementById('view-count');
 
-        const NAMESPACE = "silkscreen_studios_commons_v1";
-
         async function updateViewCount(imageId) {
             viewCountEl.innerText = "Checking view history...";
             
-            const key = `img_${imageId}`.replace(/[^a-zA-Z0-9_]/g, '_');
-            
             try {
-                const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${key}/up`);
+                // Abacus key structure using Wikimedia page ID
+                const res = await fetch(`https://abacus.jasoncameron.dev/hit/silkscreen-studios.github.io/img_${imageId}`);
                 
-                if (!res.ok) {
-                    throw new Error('Counter API unreachable');
-                }
+                if (!res.ok) throw new Error('Counter unreachable');
                 
                 const data = await res.json();
-                const count = data.count || data.value || 1;
+                const count = data.value || 1;
                 
                 if (count <= 1) {
                     viewCountEl.innerText = "You are the first to see this image";
@@ -127,7 +122,6 @@
             }
         }
 
-        // Trigger on keypress, mouse click, or mobile screen tap
         document.addEventListener('keydown', fetchRandomImage);
         document.addEventListener('click', fetchRandomImage);
     </script>
