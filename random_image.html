@@ -18,14 +18,14 @@
         }
         #image-container {
             max-width: 90vw;
-            max-height: 75vh;
+            max-height: 70vh;
             display: flex;
             justify-content: center;
             align-items: center;
         }
         img {
             max-width: 100%;
-            max-height: 75vh;
+            max-height: 70vh;
             border-radius: 8px;
             object-fit: contain;
         }
@@ -42,6 +42,14 @@
             font-weight: bold;
             min-height: 1.4em;
         }
+        #adblock-notice {
+            position: fixed;
+            bottom: 12px;
+            font-size: 0.8rem;
+            color: #888;
+            text-align: center;
+            max-width: 80%;
+        }
     </style>
 </head>
 <body>
@@ -51,6 +59,7 @@
     </div>
     <div id="status">Press any key to start</div>
     <div id="view-count"></div>
+    <div id="adblock-notice">Note: If you use an adblocker, the view counter feature may be blocked from displaying.</div>
 
     <script>
         const container = document.getElementById('image-container');
@@ -62,11 +71,9 @@
         async function updateViewCount(imageId) {
             viewCountEl.innerText = "Checking view history...";
             
-            // Clean key to contain only letters, numbers, and underscores
             const key = `img_${imageId}`.replace(/[^a-zA-Z0-9_]/g, '_');
             
             try {
-                // Fetch counter hit using GET request
                 const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${key}/up`);
                 
                 if (!res.ok) {
@@ -82,7 +89,6 @@
                     viewCountEl.innerText = `${count} people have seen this image`;
                 }
             } catch (err) {
-                // Fallback text if the counter server is unreachable or fails
                 viewCountEl.innerText = "You are the first to see this image";
             }
         }
