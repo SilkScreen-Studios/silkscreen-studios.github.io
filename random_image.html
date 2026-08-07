@@ -36,11 +36,11 @@
             text-align: center;
         }
         #view-count {
-            margin-top: 8px;
-            font-size: 0.95rem;
+            margin-top: 10px;
+            font-size: 1.1rem;
             color: #4CAF50;
-            font-weight: 600;
-            min-height: 1.2em;
+            font-weight: bold;
+            min-height: 1.4em;
         }
     </style>
 </head>
@@ -57,25 +57,33 @@
         const status = document.getElementById('status');
         const viewCountEl = document.getElementById('view-count');
 
-        // Namespace for Counter API to keep your counts distinct
-        const NAMESPACE = "silkscreen-studios-wiki";
+        const NAMESPACE = "silkscreen_studios_commons_v1";
 
         async function updateViewCount(imageId) {
             viewCountEl.innerText = "Checking view history...";
+            
+            // Clean key to contain only letters, numbers, and underscores
+            const key = `img_${imageId}`.replace(/[^a-zA-Z0-9_]/g, '_');
+            
             try {
-                // Increment view count for this specific Wikimedia Page ID
-                const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/img_${imageId}/up`);
-                const data = await res.json();
+                // Fetch counter hit using GET request
+                const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/${key}/up`);
                 
-                const count = data.count;
+                if (!res.ok) {
+                    throw new Error('Counter API unreachable');
+                }
+                
+                const data = await res.json();
+                const count = data.count || data.value || 1;
+                
                 if (count <= 1) {
                     viewCountEl.innerText = "You are the first to see this image";
                 } else {
                     viewCountEl.innerText = `${count} people have seen this image`;
                 }
             } catch (err) {
-                // Fail silently on analytics if API is blocked or offline
-                viewCountEl.innerText = "";
+                // Fallback text if the counter server is unreachable or fails
+                viewCountEl.innerText = "You are the first to see this image";
             }
         }
 
@@ -98,7 +106,6 @@
                         container.innerHTML = `<img src="${info.url}" alt="Random image">`;
                         status.innerText = "Press ANY key for another random image!";
                         
-                        // Track/Display views using Wikimedia's unique page ID
                         updateViewCount(id);
                         return;
                     }
