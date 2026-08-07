@@ -63,22 +63,23 @@
     </main>
 
     <footer>
+        <p>&copy; 2026 SilkScreen Studios</p>
         <p id="page-views" class="footnote">Loading page views...</p>
         <p class="footnote">Note: If you use an adblocker, the view counter feature may be blocked from displaying.</p>
     </footer>
 
     <script>
-        const NAMESPACE = "silkscreen_studios_commons_v1";
         const pageViewsEl = document.getElementById('page-views');
 
         async function updateHomePageViews() {
             try {
-                const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/homepage_hits/up`);
-                if (!res.ok) throw new Error();
+                // Abacus API registers hits instantly without buffering
+                const res = await fetch('https://abacus.jasoncameron.dev/hit/silkscreen-studios.github.io/home');
+                
+                if (!res.ok) throw new Error('Counter unreachable');
                 
                 const data = await res.json();
-                const count = data.count || data.value || 1;
-                pageViewsEl.innerText = `This page has been visited ${count} times.`;
+                pageViewsEl.innerText = `This page has been visited ${data.value} times.`;
             } catch (err) {
                 pageViewsEl.innerText = "This page has been visited 1 time.";
             }
