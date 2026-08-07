@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Truly Random Internet Image</title>
     <style>
         body {
@@ -14,6 +15,11 @@
             background-color: #111;
             color: #fff;
             font-family: system-ui, sans-serif;
+            /* Prevents double-tap zooming on mobile devices */
+            touch-action: manipulation; 
+            /* Prevents highlight box when tapping on mobile */
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none;
         }
         #image-container {
             max-width: 90vw;
@@ -39,18 +45,25 @@
 <body>
 
     <div id="image-container">
-        <p>Press ANY key to fetch a random image!</p>
+        <p>TAP the screen or press ANY key!</p>
     </div>
-    <div id="status">Press any key to start</div>
+    <div id="status">Tap screen or press key to start</div>
 
     <script>
         const container = document.getElementById('image-container');
         const status = document.getElementById('status');
+        let isLoading = false;
 
-        async function fetchRandomImage() {
+        async function fetchRandomImage(event) {
+            // Prevent duplicate triggers if both touch and click fire
+            if (event) event.preventDefault();
+            
+            // Don't fetch a new image if one is already loading
+            if (isLoading) return; 
+            isLoading = true;
+
             status.innerText = "Searching the web...";
             
-            // Query Wikimedia Commons for a random File (namespace 6)
             const apiUrl = 'https://commons.wikimedia.org/w/api.php?' + 
                 'action=query&generator=random&grnnamespace=6&grnlimit=10' + 
                 '&prop=imageinfo&iiprop=url|mime&format=json&origin=*';
@@ -60,24 +73,28 @@
                 const data = await response.json();
                 const pages = data.query.pages;
                 
-                // Find the first valid image file (skipping audio/pdf/svgs)
                 for (let id in pages) {
                     const info = pages[id].imageinfo?.[0];
                     if (info && info.mime.startsWith('image/')) {
                         container.innerHTML = `<img src="${info.url}" alt="Random image">`;
-                        status.innerText = "Press ANY key for another random image!";
+                        status.innerText = "TAP screen or press ANY key for another!";
+                        isLoading = false;
                         return;
                     }
                 }
-                // Retry if the batch didn't contain a direct bitmap image
-                fetchRandomImage();
+                isLoading = false;
+                fetchRandomImage(); // Retry if batch had no valid bitmap images
             } catch (err) {
-                status.innerText = "Error fetching image. Press any key to try again.";
+                status.innerText = "Error fetching image. Tap or press key to try again.";
+                isLoading = false;
             }
         }
 
-        // Trigger on any key press
+        // 1. Keyboard trigger (for desktop)
         document.addEventListener('keydown', fetchRandomImage);
+
+        // 2. Touch trigger (for mobile phones/tablets)
+        document.addEventListener('touchstart', fetchRandomImage, { passive: false });
     </script>
 </body>
 </html>
