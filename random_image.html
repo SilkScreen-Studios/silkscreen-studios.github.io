@@ -297,21 +297,24 @@
 
         // 3. Submit Message
         function submitMessage() {
-            const text = commentInput.value.trim();
-            if (!text || !currentImageId) return;
+    const text = commentInput.value.trim();
+    if (!text || !currentImageId) return;
 
-            const now = new Date();
-            const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear().toString().slice(-2)}`;
+    const dateStr = `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear().toString().slice(-2)}`;
+    const messageData = {
+        author: username,
+        text: text.substring(0, 25),
+        date: dateStr
+    };
 
-            const messageData = {
-                author: username,
-                text: text.substring(0, 25),
-                date: dateStr
-            };
-
-            db.ref(`messages/${currentImageId}`).push(messageData);
+    db.ref(`messages/${currentImageId}`).push(messageData)
+        .then(() => {
             commentInput.value = "";
-        }
+        })
+        .catch((error) => {
+            alert("Storage limit reached! No new comments can be accepted at this time.");
+        });
+}
 
         function scrollToBottom() {
             document.getElementById('bottom-target').scrollIntoView({ behavior: 'smooth' });
