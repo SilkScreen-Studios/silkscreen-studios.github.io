@@ -48,7 +48,6 @@
             text-align: center;
             transition: all 0.3s ease;
         }
-        /* Special highlight styling for rare returning images */
         #view-count.rare-find {
             color: #e63946;
             font-size: 2.2rem;
@@ -70,9 +69,9 @@
 <body>
 
     <div id="image-container">
-        <p>Tap the screen or press ANY key to fetch a random image!</p>
+        <p>Tap the screen or click to fetch a random image!</p>
     </div>
-    <div id="status">Tap screen or press key to start</div>
+    <div id="status">Tap screen or click to start</div>
     <div id="view-count"></div>
     <div id="adblock-notice">Note: If you use an adblocker, the view counter feature may be blocked from displaying.</div>
 
@@ -84,22 +83,53 @@
         let isCooldown = false;
         let cooldownTimer = null;
 
-        function startCooldown(seconds) {
+        // Anti-spam click tracking
+        const clickTimestamps = [];
+        let spamPenaltyMultiplier = 1;
+
+        function startCooldown(seconds, isSpamPenalty = false) {
             isCooldown = true;
             let remaining = seconds;
             
-            status.innerText = `RARE FIND! Wait ${remaining}s to generate next image...`;
+            const messagePrefix = isSpamPenalty 
+                ? "Don't spam click! Images are shown to look at, not speed through. Wait " 
+                : "RARE FIND! Wait ";
+
+            status.innerText = `${messagePrefix}${remaining}s to generate next image...`;
 
             cooldownTimer = setInterval(() => {
                 remaining--;
                 if (remaining > 0) {
-                    status.innerText = `RARE FIND! Wait ${remaining}s to generate next image...`;
+                    status.innerText = `${messagePrefix}${remaining}s to generate next image...`;
                 } else {
                     clearInterval(cooldownTimer);
                     isCooldown = false;
-                    status.innerText = "Tap screen or press ANY key for another image!";
+                    status.innerText = "Tap screen or click for another image!";
                 }
             }, 1000);
+        }
+
+        function checkSpamClicks() {
+            const now = Date.now();
+            clickTimestamps.push(now);
+
+            // Keep only clicks from the last 1000ms (1 second)
+            while (clickTimestamps.length > 0 && clickTimestamps[0] <= now - 1000) {
+                clickTimestamps.shift();
+            }
+
+            // Trigger timeout if 4 or more clicks occur within 1 second
+            if (clickTimestamps.length >= 4) {
+                const timeoutDuration = 5 * spamPenaltyMultiplier; // 5s, 10s, 15s, etc.
+                spamPenaltyMultiplier++;
+                clickTimestamps.length = 0; // Clear history
+                
+                viewCountEl.classList.remove("rare-find");
+                viewCountEl.innerText = "";
+                startCooldown(timeoutDuration, true);
+                return true;
+            }
+            return false;
         }
 
         async function updateViewCount(imageId) {
@@ -117,10 +147,9 @@
                 if (count <= 1) {
                     viewCountEl.innerText = "You are the first to see this image";
                 } else {
-                    // Highlight repeat hits and trigger 10s cooldown lock
                     viewCountEl.classList.add("rare-find");
                     viewCountEl.innerText = `${count} people have seen this image!`;
-                    startCooldown(10);
+                    startCooldown(10, false);
                 }
             } catch (err) {
                 viewCountEl.innerText = "You are the first to see this image";
@@ -128,8 +157,10 @@
         }
 
         async function fetchRandomImage() {
-            // Block input during lock period
             if (isCooldown) return;
+
+            // Check if user is clicking too fast
+            if (checkSpamClicks()) return;
 
             status.innerText = "Searching the web...";
             viewCountEl.classList.remove("rare-find");
@@ -148,7 +179,7 @@
                     const info = pages[id].imageinfo?.[0];
                     if (info && info.mime.startsWith('image/')) {
                         container.innerHTML = `<img src="${info.url}" alt="Random image">`;
-                        status.innerText = "Tap screen or press ANY key for another image!";
+                        status.innerText = "Tap screen or click for another image!";
                         
                         updateViewCount(id);
                         return;
@@ -156,11 +187,11 @@
                 }
                 fetchRandomImage();
             } catch (err) {
-                status.innerText = "Error fetching image. Tap or press key to try again.";
+                status.innerText = "Error fetching image. Tap or click to try again.";
             }
         }
 
-        document.addEventListener('keydown', fetchRandomImage);
+        // Only listen for screen taps and mouse clicks
         document.addEventListener('click', fetchRandomImage);
     </script>
 </body>
