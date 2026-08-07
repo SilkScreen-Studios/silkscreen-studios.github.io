@@ -22,15 +22,21 @@
             background-color: transparent;
             text-decoration: underline;
     }
-        a:active {
+    a:active {
             color: steelblue;
             background-color: transparent;
             text-decoration: underline;
     }
     body {
-        font-family: 'Fredoka One';font-size: 22px;
-        background-color:  #333333;
+        font-family: 'Fredoka One';
+        font-size: 22px;
+        background-color: #333333;
         color: white;
+    }
+    .footnote {
+        font-size: 0.8rem;
+        color: #888;
+        font-family: system-ui, sans-serif;
     }
 </style>
 <body>
@@ -49,16 +55,38 @@
             <h2>Our Content</h2>
             <p>
                 <a href="extras/i_got_put_into_a_fishfillet.JPG" download>Download my first invention (17/6/26)</a>
-</p>
+            </p>
             <p>
                 <a href="random_image.html">The Random Image Finder (7/8/26)</a>
-</p>
+            </p>
         </section>
     </main>
 
     <footer>
         <p>&copy; 2026 SilkScreen Studios</p>
+        <p id="page-views" class="footnote">Loading page views...</p>
+        <p class="footnote">Note: If you use an adblocker, the view counter feature may be blocked from displaying.</p>
     </footer>
+
+    <script>
+        const NAMESPACE = "silkscreen_studios_commons_v1";
+        const pageViewsEl = document.getElementById('page-views');
+
+        async function updateHomePageViews() {
+            try {
+                const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/homepage_hits/up`);
+                if (!res.ok) throw new Error();
+                
+                const data = await res.json();
+                const count = data.count || data.value || 1;
+                pageViewsEl.innerText = `This page has been visited ${count} times.`;
+            } catch (err) {
+                pageViewsEl.innerText = "This page has been visited 1 time.";
+            }
+        }
+
+        updateHomePageViews();
+    </script>
 
 </body>
 </html>
