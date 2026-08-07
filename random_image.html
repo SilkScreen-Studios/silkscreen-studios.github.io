@@ -15,54 +15,73 @@
             background-color: #111;
             color: #fff;
             font-family: system-ui, sans-serif;
-            /* Prevents double-tap zooming on mobile devices */
-            touch-action: manipulation; 
-            /* Prevents highlight box when tapping on mobile */
-            -webkit-tap-highlight-color: transparent; 
-            user-select: none;
         }
         #image-container {
             max-width: 90vw;
-            max-height: 80vh;
+            max-height: 75vh;
             display: flex;
             justify-content: center;
             align-items: center;
         }
         img {
             max-width: 100%;
-            max-height: 80vh;
+            max-height: 75vh;
             border-radius: 8px;
             object-fit: contain;
         }
         #status {
-            margin-top: 20px;
+            margin-top: 15px;
             font-size: 1.1rem;
             opacity: 0.8;
             text-align: center;
+        }
+        #view-count {
+            margin-top: 8px;
+            font-size: 0.95rem;
+            color: #4CAF50;
+            font-weight: 600;
+            min-height: 1.2em;
         }
     </style>
 </head>
 <body>
 
     <div id="image-container">
-        <p>TAP the screen or press ANY key!</p>
+        <p>Press ANY key to fetch a random image!</p>
     </div>
-    <div id="status">Tap screen or press key to start</div>
+    <div id="status">Press any key to start</div>
+    <div id="view-count"></div>
 
     <script>
         const container = document.getElementById('image-container');
         const status = document.getElementById('status');
-        let isLoading = false;
+        const viewCountEl = document.getElementById('view-count');
 
-        async function fetchRandomImage(event) {
-            // Prevent duplicate triggers if both touch and click fire
-            if (event) event.preventDefault();
-            
-            // Don't fetch a new image if one is already loading
-            if (isLoading) return; 
-            isLoading = true;
+        // Namespace for Counter API to keep your counts distinct
+        const NAMESPACE = "silkscreen-studios-wiki";
 
+        async function updateViewCount(imageId) {
+            viewCountEl.innerText = "Checking view history...";
+            try {
+                // Increment view count for this specific Wikimedia Page ID
+                const res = await fetch(`https://api.counterapi.dev/v1/${NAMESPACE}/img_${imageId}/up`);
+                const data = await res.json();
+                
+                const count = data.count;
+                if (count <= 1) {
+                    viewCountEl.innerText = "You are the first to see this image";
+                } else {
+                    viewCountEl.innerText = `${count} people have seen this image`;
+                }
+            } catch (err) {
+                // Fail silently on analytics if API is blocked or offline
+                viewCountEl.innerText = "";
+            }
+        }
+
+        async function fetchRandomImage() {
             status.innerText = "Searching the web...";
+            viewCountEl.innerText = "";
             
             const apiUrl = 'https://commons.wikimedia.org/w/api.php?' + 
                 'action=query&generator=random&grnnamespace=6&grnlimit=10' + 
@@ -77,24 +96,20 @@
                     const info = pages[id].imageinfo?.[0];
                     if (info && info.mime.startsWith('image/')) {
                         container.innerHTML = `<img src="${info.url}" alt="Random image">`;
-                        status.innerText = "TAP screen or press ANY key for another!";
-                        isLoading = false;
+                        status.innerText = "Press ANY key for another random image!";
+                        
+                        // Track/Display views using Wikimedia's unique page ID
+                        updateViewCount(id);
                         return;
                     }
                 }
-                isLoading = false;
-                fetchRandomImage(); // Retry if batch had no valid bitmap images
+                fetchRandomImage();
             } catch (err) {
-                status.innerText = "Error fetching image. Tap or press key to try again.";
-                isLoading = false;
+                status.innerText = "Error fetching image. Press any key to try again.";
             }
         }
 
-        // 1. Keyboard trigger (for desktop)
         document.addEventListener('keydown', fetchRandomImage);
-
-        // 2. Touch trigger (for mobile phones/tablets)
-        document.addEventListener('touchstart', fetchRandomImage, { passive: false });
     </script>
 </body>
 </html>
