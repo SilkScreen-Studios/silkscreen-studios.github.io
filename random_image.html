@@ -206,19 +206,24 @@
         const clickTimestamps = [];
         let spamPenaltyMultiplier = parseInt(localStorage.getItem('spamMultiplier')) || 1;
 
-        // 1. Generate & Lock Permanent 15-character Username
+        // 1. Get or Prompt for Custom 10-Character Username
         function getOrCreateUsername() {
             let user = localStorage.getItem('unique_username');
+            
             if (!user) {
-                // Generates an unchangeable 15-character ID like "User_A8f3K9qL2p"
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                let randomId = '';
-                for (let i = 0; i < 10; i++) {
-                    randomId += chars.charAt(Math.floor(Math.random() * chars.length));
+                let input = prompt("Choose a unique username (max 10 characters):");
+                
+                // Fallback to a clean default if canceled or left blank
+                if (!input || input.trim() === "") {
+                    input = "User_" + Math.floor(1000 + Math.random() * 9000);
                 }
-                user = `User_${randomId}`;
+                
+                // Clean input: replace spaces and trim to exactly 10 characters max
+                user = input.trim().replace(/\s+/g, '_').substring(0, 10);
                 localStorage.setItem('unique_username', user);
             }
+            
+            // Immediately render locally without waiting on network calls
             usernameDisplay.innerText = `Your Username: ${user}`;
             return user;
         }
