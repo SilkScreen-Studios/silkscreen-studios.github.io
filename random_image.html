@@ -45,6 +45,16 @@
             color: #4CAF50;
             font-weight: bold;
             min-height: 1.4em;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        /* Special highlight styling for rare returning images */
+        #view-count.rare-find {
+            color: #e63946;
+            font-size: 2.2rem;
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(230, 57, 70, 0.4);
+            margin-top: 15px;
         }
         #adblock-notice {
             position: fixed;
@@ -71,11 +81,32 @@
         const status = document.getElementById('status');
         const viewCountEl = document.getElementById('view-count');
 
+        let isCooldown = false;
+        let cooldownTimer = null;
+
+        function startCooldown(seconds) {
+            isCooldown = true;
+            let remaining = seconds;
+            
+            status.innerText = `RARE FIND! Wait ${remaining}s to generate next image...`;
+
+            cooldownTimer = setInterval(() => {
+                remaining--;
+                if (remaining > 0) {
+                    status.innerText = `RARE FIND! Wait ${remaining}s to generate next image...`;
+                } else {
+                    clearInterval(cooldownTimer);
+                    isCooldown = false;
+                    status.innerText = "Tap screen or press ANY key for another image!";
+                }
+            }, 1000);
+        }
+
         async function updateViewCount(imageId) {
+            viewCountEl.classList.remove("rare-find");
             viewCountEl.innerText = "Checking view history...";
             
             try {
-                // Abacus key structure using Wikimedia page ID
                 const res = await fetch(`https://abacus.jasoncameron.dev/hit/silkscreen-studios.github.io/img_${imageId}`);
                 
                 if (!res.ok) throw new Error('Counter unreachable');
@@ -86,7 +117,10 @@
                 if (count <= 1) {
                     viewCountEl.innerText = "You are the first to see this image";
                 } else {
-                    viewCountEl.innerText = `${count} people have seen this image`;
+                    // Highlight repeat hits and trigger 10s cooldown lock
+                    viewCountEl.classList.add("rare-find");
+                    viewCountEl.innerText = `${count} people have seen this image!`;
+                    startCooldown(10);
                 }
             } catch (err) {
                 viewCountEl.innerText = "You are the first to see this image";
@@ -94,7 +128,11 @@
         }
 
         async function fetchRandomImage() {
+            // Block input during lock period
+            if (isCooldown) return;
+
             status.innerText = "Searching the web...";
+            viewCountEl.classList.remove("rare-find");
             viewCountEl.innerText = "";
             
             const apiUrl = 'https://commons.wikimedia.org/w/api.php?' + 
