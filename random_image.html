@@ -169,7 +169,7 @@
 
     <!-- Message Board -->
     <div id="message-board">
-        <div id="username-display">Loading User ID...</div>
+        <div id="username-display"></div>
         
         <div id="comment-form">
             <input type="text" id="comment-input" maxlength="25" placeholder="Leave a message (max 25 chars)...">
@@ -206,24 +206,21 @@
         const clickTimestamps = [];
         let spamPenaltyMultiplier = parseInt(localStorage.getItem('spamMultiplier')) || 1;
 
-        // 1. Get or Prompt for Custom 10-Character Username
+        // 1. Custom 10-Character Username Prompt
         function getOrCreateUsername() {
             let user = localStorage.getItem('unique_username');
             
             if (!user) {
                 let input = prompt("Choose a unique username (max 10 characters):");
                 
-                // Fallback to a clean default if canceled or left blank
                 if (!input || input.trim() === "") {
                     input = "User_" + Math.floor(1000 + Math.random() * 9000);
                 }
                 
-                // Clean input: replace spaces and trim to exactly 10 characters max
                 user = input.trim().replace(/\s+/g, '_').substring(0, 10);
                 localStorage.setItem('unique_username', user);
             }
             
-            // Immediately render locally without waiting on network calls
             usernameDisplay.innerText = `Your Username: ${user}`;
             return user;
         }
@@ -261,7 +258,6 @@
                     commentsList.appendChild(card);
                 });
 
-                // Disable form if user already left their single allowed message
                 if (userHasPosted) {
                     commentInput.disabled = true;
                     commentInput.placeholder = "You have already left a message!";
@@ -284,16 +280,14 @@
 
             const messageData = {
                 author: username,
-                text: text.substring(0, 25), // Enforce 25 chars max
+                text: text.substring(0, 25),
                 date: dateStr
             };
 
-            // Post to Firebase under image ID
             db.ref(`messages/${currentImageId}`).push(messageData);
             commentInput.value = "";
         }
 
-        // Navigation Scroll Helpers
         function scrollToBottom() {
             document.getElementById('bottom-target').scrollIntoView({ behavior: 'smooth' });
         }
@@ -301,7 +295,6 @@
             document.getElementById('top-target').scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Cooldown & Anti-Spam Logic
         function startCooldown(seconds, isSpamPenalty = false, setEndTime = true) {
             isCooldown = true;
             let remaining = seconds;
