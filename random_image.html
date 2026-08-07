@@ -82,20 +82,45 @@
 
         let isCooldown = false;
         let cooldownTimer = null;
-
-        // Anti-spam click tracking
         const clickTimestamps = [];
-        let spamPenaltyMultiplier = 1;
 
-        function startCooldown(seconds, isSpamPenalty = false) {
+        // Load saved penalty multiplier or default to 1
+        let spamPenaltyMultiplier = parseInt(localStorage.getItem('spamMultiplier')) || 1;
+
+        function checkActiveTimeoutOnLoad() {
+            const timeoutEnd = localStorage.getItem('timeoutEnd');
+            const isSpam = localStorage.getItem('timeoutType') === 'spam';
+
+            if (timeoutEnd) {
+                const now = Date.now();
+                const remainingSeconds = Math.ceil((parseInt(timeoutEnd) - now) / 1000);
+
+                if (remainingSeconds > 0) {
+                    startCooldown(remainingSeconds, isSpam, false);
+                } else {
+                    localStorage.removeItem('timeoutEnd');
+                    localStorage.removeItem('timeoutType');
+                }
+            }
+        }
+
+        function startCooldown(seconds, isSpamPenalty = false, setEndTime = true) {
             isCooldown = true;
             let remaining = seconds;
+
+            if (setEndTime) {
+                const endTime = Date.now() + (seconds * 1000);
+                localStorage.setItem('timeoutEnd', endTime);
+                localStorage.setItem('timeoutType', isSpamPenalty ? 'spam' : 'rare');
+            }
             
             const messagePrefix = isSpamPenalty 
                 ? "Don't spam click! Images are shown to look at, not speed through. Wait " 
                 : "RARE FIND! Wait ";
 
             status.innerText = `${messagePrefix}${remaining}s to generate next image...`;
+
+            if (cooldownTimer) clearInterval(cooldownTimer);
 
             cooldownTimer = setInterval(() => {
                 remaining--;
@@ -104,6 +129,8 @@
                 } else {
                     clearInterval(cooldownTimer);
                     isCooldown = false;
+                    localStorage.removeItem('timeoutEnd');
+                    localStorage.removeItem('timeoutType');
                     status.innerText = "Tap screen or click for another image!";
                 }
             }, 1000);
@@ -113,19 +140,20 @@
             const now = Date.now();
             clickTimestamps.push(now);
 
-            // Keep only clicks from the last 1000ms (1 second)
             while (clickTimestamps.length > 0 && clickTimestamps[0] <= now - 1000) {
                 clickTimestamps.shift();
             }
 
-            // Trigger timeout if 4 or more clicks occur within 1 second
             if (clickTimestamps.length >= 4) {
-                const timeoutDuration = 5 * spamPenaltyMultiplier; // 5s, 10s, 15s, etc.
-                spamPenaltyMultiplier++;
-                clickTimestamps.length = 0; // Clear history
+                const timeoutDuration = 5 * spamPenaltyMultiplier;
                 
+                spamPenaltyMultiplier++;
+                localStorage.setItem('spamMultiplier', spamPenaltyMultiplier);
+                
+                clickTimestamps.length = 0;
                 viewCountEl.classList.remove("rare-find");
                 viewCountEl.innerText = "";
+                
                 startCooldown(timeoutDuration, true);
                 return true;
             }
@@ -159,7 +187,6 @@
         async function fetchRandomImage() {
             if (isCooldown) return;
 
-            // Check if user is clicking too fast
             if (checkSpamClicks()) return;
 
             status.innerText = "Searching the web...";
@@ -191,7 +218,9 @@
             }
         }
 
-        // Only listen for screen taps and mouse clicks
+        // On page load, check if user is mid-timeout
+        checkActiveTimeoutOnLoad();
+
         document.addEventListener('click', fetchRandomImage);
     </script>
 </body>
