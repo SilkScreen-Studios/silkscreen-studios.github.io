@@ -186,7 +186,6 @@
     <div id="adblock-notice">Note: If you use an adblocker, features may be restricted.</div>
 
     <script>
-        // REPLACE WITH YOUR FIREBASE DATABASE URL
         const firebaseConfig = {
             databaseURL: "https://silkscreen-studios-default-rtdb.europe-west1.firebasedatabase.app/"
         };
@@ -198,9 +197,11 @@
         const viewCountEl = document.getElementById('view-count');
         const commentsList = document.getElementById('comments-list');
         const commentInput = document.getElementById('comment-input');
+        const sendBtn = document.getElementById('send-btn');
         const usernameDisplay = document.getElementById('username-display');
 
         let currentImageId = null;
+        let currentDbListener = null; // Store active image listener to unbind when moving to next image
         let isCooldown = false;
         let cooldownTimer = null;
         const clickTimestamps = [];
@@ -227,24 +228,51 @@
 
         const username = getOrCreateUsername();
 
+        // Helper function to re-enable input for a new image
+        function enableCommentForm() {
+            commentInput.disabled = false;
+            commentInput.value = "";
+            commentInput.placeholder = "Leave a message (max 25 chars)...";
+            sendBtn.disabled = false;
+        }
+
+        // Helper function to disable input if already posted on THIS image
+        function disableCommentForm() {
+            commentInput.disabled = true;
+            commentInput.value = "";
+            commentInput.placeholder = "You have already left a message!";
+            sendBtn.disabled = true;
+        }
+
         // 2. Fetch and Display Messages
         function loadMessages(imageId) {
+            // Clean up previous database listener if exists
+            if (currentDbListener && currentImageId) {
+                db.ref(`messages/${currentImageId}`).off('value', currentDbListener);
+            }
+
+            // Always reset the input form state first whenever loading a new image
+            enableCommentForm();
             commentsList.innerHTML = "Loading messages...";
             
             const imageCommentsRef = db.ref(`messages/${imageId}`);
-            imageCommentsRef.on('value', (snapshot) => {
+            
+            currentDbListener = imageCommentsRef.on('value', (snapshot) => {
                 commentsList.innerHTML = "";
                 const data = snapshot.val();
                 
                 if (!data) {
                     commentsList.innerHTML = "<p style='font-size:0.85rem; color:#666;'>No messages left for this image yet.</p>";
+                    enableCommentForm();
                     return;
                 }
 
-                let userHasPosted = false;
+                let userHasPostedOnThisImage = false;
 
                 Object.values(data).forEach(msg => {
-                    if (msg.author === username) userHasPosted = true;
+                    if (msg.author === username) {
+                        userHasPostedOnThisImage = true;
+                    }
 
                     const card = document.createElement('div');
                     card.className = 'comment-card';
@@ -258,14 +286,11 @@
                     commentsList.appendChild(card);
                 });
 
-                if (userHasPosted) {
-                    commentInput.disabled = true;
-                    commentInput.placeholder = "You have already left a message!";
-                    document.getElementById('send-btn').disabled = true;
+                // Enforce 1 comment per unique image per user
+                if (userHasPostedOnThisImage) {
+                    disableCommentForm();
                 } else {
-                    commentInput.disabled = false;
-                    commentInput.placeholder = "Leave a message (max 25 chars)...";
-                    document.getElementById('send-btn').disabled = false;
+                    enableCommentForm();
                 }
             });
         }
