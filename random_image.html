@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Truly Random Internet Image</title>
+    <title>Silk's Random Image Generator</title>
     <style>
         body {
             margin: 0;
@@ -15,6 +15,9 @@
             background-color: #111;
             color: #fff;
             font-family: system-ui, sans-serif;
+            user-select: none; /* Prevents text selection highlight when tapping rapidly on mobile */
+            -webkit-user-select: none;
+            cursor: pointer;
         }
         #image-container {
             max-width: 90vw;
@@ -28,6 +31,7 @@
             max-height: 70vh;
             border-radius: 8px;
             object-fit: contain;
+            pointer-events: none; /* Allows taps directly on top of the image to register on body */
         }
         #status {
             margin-top: 15px;
@@ -49,15 +53,16 @@
             color: #888;
             text-align: center;
             max-width: 80%;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
     <div id="image-container">
-        <p>Press ANY key to fetch a random image!</p>
+        <p>Tap the screen or press ANY key to fetch a random image!</p>
     </div>
-    <div id="status">Press any key to start</div>
+    <div id="status">Tap screen or press key to start</div>
     <div id="view-count"></div>
     <div id="adblock-notice">Note: If you use an adblocker, the view counter feature may be blocked from displaying.</div>
 
@@ -110,7 +115,7 @@
                     const info = pages[id].imageinfo?.[0];
                     if (info && info.mime.startsWith('image/')) {
                         container.innerHTML = `<img src="${info.url}" alt="Random image">`;
-                        status.innerText = "Press ANY key for another random image!";
+                        status.innerText = "Tap screen or press ANY key for another image!";
                         
                         updateViewCount(id);
                         return;
@@ -118,11 +123,13 @@
                 }
                 fetchRandomImage();
             } catch (err) {
-                status.innerText = "Error fetching image. Press any key to try again.";
+                status.innerText = "Error fetching image. Tap or press key to try again.";
             }
         }
 
+        // Trigger on keypress, mouse click, or mobile screen tap
         document.addEventListener('keydown', fetchRandomImage);
+        document.addEventListener('click', fetchRandomImage);
     </script>
 </body>
 </html>
