@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Rock Paper Scissors | Silkscreen Studios</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: #1e293b; padding: 2rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 480px; width: 100%; border: 1px solid #334155; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: #38bdf8; }
+    p { color: #94a3b8; margin-bottom: 1.5rem; font-size: 0.95rem; }
+    
+    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-bottom: 1.5rem; background: #334155; color: #cbd5e1; }
+    .status-badge.active { background: #0369a1; color: #e0f2fe; }
+    
+    .timer-bar { width: 100%; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 1.5rem; display: none; }
+    .timer-progress { height: 100%; width: 100%; background: #ef4444; transition: width 1s linear; }
+
+    .choices { display: flex; gap: 12px; justify-content: center; margin-bottom: 1.5rem; }
+    .choice-btn { background: #334155; border: 2px solid transparent; font-size: 2.5rem; padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s; flex: 1; }
+    .choice-btn:hover:not(:disabled) { transform: translateY(-4px); background: #475569; border-color: #38bdf8; }
+    .choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .choice-btn.selected { border-color: #22c55e; background: #14532d; }
+
+    .btn { background: #0284c7; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; width: 100%; }
+    .btn:hover { background: #0369a1; }
+    .btn:disabled { background: #475569; cursor: not-allowed; }
+
+    .result-display { font-size: 1.25rem; font-weight: bold; margin: 1rem 0; min-height: 30px; }
+    .win { color: #4ade80; }
+    .lose { color: #f87171; }
+    .draw { color: #facc15; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Rock Paper Scissors</h1>
+    <p>Silkscreen Studios Live Multiplayer</p>
+
+    <div id="status" class="status-badge">Connecting to lobby...</div>
+
+    <div class="timer-bar" id="timerBar">
+      <div class="timer-progress" id="timerProgress"></div>
+    </div>
+
+    <div class="choices">
+      <button class="choice-btn" id="btn-rock" onclick="makeChoice('rock')" disabled>🪨</button>
+      <button class="choice-btn" id="btn-paper" onclick="makeChoice('paper')" disabled>📄</button>
+      <button class="choice-btn" id="btn-scissors" onclick="makeChoice('scissors')" disabled>✂️</button>
+    </div>
+
+    <div id="result" class="result-display"></div>
+
+    <button id="actionBtn" class="btn" onclick="startMatchmaking()">Find Online Opponent</button>
+  </div>
+
+  <script>
+    const LOBBY_PREFIX = "silkscreen-rps-room-";
+    let peer = null;
+    let conn = null;
+    let myChoice = null;
+    let opponentChoice = null;
+    let timerInterval = null;
+    let timeLeft = 5;
+
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const actionBtn = document.getElementById('actionBtn');
+    const timerBar = document.getElementById('timerBar');
+    const timerProgress = document.getElementById('timerProgress');
+    const choiceBtns = ['rock', 'paper', 'scissors'].map(id => document.getElementById(`btn-${id}`));
+
+    function initPeer() {
+      // Connect to free PeerJS signaling server
+      peer = new Peer();
+
+      peer.on('open', (id) => {
+        statusEl.textContent = "Ready to search";
+        actionBtn.disabled = false;
+      });
+
+      peer.on('connection', (incomingConn) => {
+        if (!conn) {
+          conn = incomingConn;
+          setupConnection();
+        }
+      });
+
+      peer.on('error', (err) => {
+        console.error(err);
+        if (err.type === 'peer-not-found') {
+          // If room host wasn't found, become the host room
+          createHostRoom();
+        }
+      });
+    }
+
+    function startMatchmaking() {
+      actionBtn.disabled = true;
+      resultEl.textContent = "";
+      myChoice = null;
+      opponentChoice = null;
+
+      // Random room pool between 1 and 5 for quick public matching
+      const poolId = Math.floor(Math.random() * 5) + 1;
+      const targetRoomId = LOBBY_PREFIX + poolId;
+
+      statusEl.textContent = "Searching for opponent...";
+      statusEl.classList.add('active');
+
+      // Attempt to join existing open room
+      conn = peer.connect(targetRoomId);
+      setupConnection();
+    }
+
+    function createHostRoom() {
+      const myRoomId = LOBBY_PREFIX + (Math.floor(Math.random() * 5) + 1);
+      peer.destroy();
+      peer = new Peer(myRoomId);
+      
+      peer.on('open', () => {
+        statusEl.textContent = "Waiting for an opponent to join...";
+      });
+
+      peer.on('connection', (incomingConn) => {
+        conn = incomingConn;
+        setupConnection();
+      });
+    }
+
+    function setupConnection() {
+      conn.on('open', () => {
+        statusEl.textContent = "Matched! Choose in 5s!";
+        startBattlePhase();
+      });
+
+      conn.on('data', (data) => {
+        if (data.type === 'choice') {
+          opponentChoice = data.value;
+          checkGameEnd();
+        } else if (data.type === 'rematch') {
+          resetForRematch();
+        }
+      });
+
+      conn.on('close', () => {
+        statusEl.textContent = "Opponent disconnected.";
+        statusEl.classList.remove('active');
+        disableChoices();
+        actionBtn.textContent = "Find New Opponent";
+        actionBtn.disabled = false;
+      });
+    }
+
+    function startBattlePhase() {
+      enableChoices();
+      timeLeft = 5;
+      timerBar.style.display = 'block';
+      timerProgress.style.width = '100%';
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerProgress.style.width = `${(timeLeft / 5) * 100}%`;
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          disableChoices();
+          if (!myChoice) {
+            // Auto-pick random option if timer runs out
+            const options = ['rock', 'paper', 'scissors'];
+            makeChoice(options[Math.floor(Math.random() * 3)]);
+          }
+        }
+      }, 1000);
+    }
+
+    function makeChoice(choice) {
+      if (myChoice) return;
+      myChoice = choice;
+
+      choiceBtns.forEach(btn => btn.classList.remove('selected'));
+      document.getElementById(`btn-${choice}`).classList.add('selected');
+      disableChoices();
+
+      if (conn && conn.open) {
+        conn.send({ type: 'choice', value: choice });
+      }
+
+      checkGameEnd();
+    }
+
+    function checkGameEnd() {
+      if (myChoice && opponentChoice) {
+        clearInterval(timerInterval);
+        timerBar.style.display = 'none';
+
+        const outcome = getWinner(myChoice, opponentChoice);
+        const emojiMap = { rock: '🪨', paper: '📄', scissors: '✂️' };
+
+        if (outcome === 'win') {
+          resultEl.innerHTML = `<span class="win">You Win!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
+        } else if (outcome === 'lose') {
+          resultEl.innerHTML = `<span class="lose">You Lose!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
+        } else {
+          resultEl.innerHTML = `<span class="draw">Draw!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
+        }
+
+        actionBtn.textContent = "Play Again";
+        actionBtn.disabled = false;
+        actionBtn.onclick = requestRematch;
+      } else if (myChoice) {
+        statusEl.textContent = "Choice submitted! Waiting for opponent...";
+      }
+    }
+
+    function getWinner(p1, p2) {
+      if (p1 === p2) return 'draw';
+      if (
+        (p1 === 'rock' && p2 === 'scissors') ||
+        (p1 === 'paper' && p2 === 'rock') ||
+        (p1 === 'scissors' && p2 === 'paper')
+      ) {
+        return 'win';
+      }
+      return 'lose';
+    }
+
+    function requestRematch() {
+      if (conn && conn.open) {
+        conn.send({ type: 'rematch' });
+        resetForRematch();
+      } else {
+        startMatchmaking();
+      }
+    }
+
+    function resetForRematch() {
+      myChoice = null;
+      opponentChoice = null;
+      resultEl.textContent = "";
+      actionBtn.disabled = true;
+      choiceBtns.forEach(btn => btn.classList.remove('selected'));
+      startBattlePhase();
+    }
+
+    function enableChoices() {
+      choiceBtns.forEach(btn => btn.disabled = false);
+    }
+
+    function disableChoices() {
+      choiceBtns.forEach(btn => btn.disabled = true);
+    }
+
+    // Initialize WebRTC Peer on page load
+    initPeer();
+  </script>
+</body>
+</html>
