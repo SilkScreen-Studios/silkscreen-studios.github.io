@@ -3,138 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Truly Random Internet Image</title>
-    <!-- Firebase SDKs -->
+    <title>Silkscreen Studios - Random Image Viewer</title>
+    
+    <!-- Firebase Libraries -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
     <style>
         body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
             margin: 0;
-            padding-bottom: 60px;
-            min-height: 100vh;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
             align-items: center;
-            background-color: #111;
-            color: #fff;
-            font-family: system-ui, sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
         }
-        #top-target {
-            position: absolute;
-            top: 0;
+        #container-wrapper {
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
         }
         #image-container {
-            max-width: 90vw;
-            max-height: 65vh;
+            width: 100%;
+            min-height: 300px;
+            background: #1e1e1e;
             display: flex;
-            justify-content: center;
             align-items: center;
-            margin-top: 15px;
-            cursor: pointer;
-        }
-        img {
-            max-width: 100%;
-            max-height: 65vh;
+            justify-content: center;
             border-radius: 8px;
-            object-fit: contain;
-            pointer-events: none;
+            cursor: pointer;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        #image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
         }
         #status {
-            margin-top: 15px;
-            font-size: 1.1rem;
-            opacity: 0.8;
-            text-align: center;
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
             cursor: pointer;
         }
         #view-count {
-            margin-top: 10px;
-            font-size: 1.1rem;
-            color: #4CAF50;
-            font-weight: bold;
-            min-height: 1.4em;
-            text-align: center;
-            transition: all 0.3s ease;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: #888;
         }
-        #view-count.rare-find {
-            color: #e63946;
-            font-size: 2.2rem;
-            font-weight: 900;
-            text-shadow: 0 0 10px rgba(230, 57, 70, 0.4);
-            margin-top: 15px;
+        .rare-find {
+            color: #ffb703 !important;
+            font-weight: bold;
         }
         .nav-btn {
             background: #333;
             color: #fff;
-            border: 1px solid #555;
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-size: 0.8rem;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
             cursor: pointer;
-            margin: 10px 0;
+            margin-bottom: 15px;
         }
-        .nav-btn:hover {
-            background: #444;
+        
+        /* Auth Box Styles */
+        #auth-container {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
         }
-        /* Message Board Section */
+        #auth-container input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #2b2b2b;
+            color: #fff;
+            margin: 3px;
+        }
+        .auth-btn {
+            padding: 8px 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Comment Section Styles */
         #message-board {
-            width: 90vw;
-            max-width: 500px;
-            margin-top: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #username-display {
-            font-size: 0.85rem;
-            color: #aaa;
-            margin-bottom: 8px;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
         }
         #comment-form {
             display: flex;
-            gap: 5px;
-            width: 100%;
+            gap: 8px;
             margin-bottom: 15px;
         }
         #comment-input {
             flex: 1;
             padding: 8px;
-            border-radius: 5px;
+            border-radius: 4px;
             border: 1px solid #444;
-            background: #222;
+            background: #2b2b2b;
             color: #fff;
-            font-size: 0.9rem;
         }
         #send-btn {
             padding: 8px 12px;
             background: #2196F3;
-            border: none;
             color: white;
-            border-radius: 5px;
-            font-weight: bold;
+            border: none;
+            border-radius: 4px;
             cursor: pointer;
         }
-        #comments-list {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        #send-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
         }
         .comment-card {
-            background: #222;
+            background: #2b2b2b;
             padding: 10px;
             border-radius: 6px;
-            border-left: 3px solid #2196F3;
-            font-size: 0.9rem;
+            margin-bottom: 8px;
         }
         .comment-header {
             display: flex;
             justify-content: space-between;
             font-size: 0.75rem;
-            color: #888;
+            color: #aaa;
             margin-bottom: 4px;
         }
         .comment-author {
@@ -142,320 +142,354 @@
             font-weight: bold;
         }
         .comment-text {
+            font-size: 0.9rem;
             word-break: break-word;
-        }
-        #adblock-notice {
-            position: fixed;
-            bottom: 12px;
-            font-size: 0.8rem;
-            color: #888;
-            text-align: center;
-            max-width: 80%;
-            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div id="top-target"></div>
+<div id="top-target"></div>
 
+<div id="container-wrapper">
     <div id="image-container">
-        <p>Tap the screen or click to fetch a random image!</p>
+        <p style="color:#666;">Click/Tap to generate image</p>
     </div>
-    <div id="status">Tap screen or click to start</div>
+    
+    <div id="status">Tap screen or click for another image!</div>
     <div id="view-count"></div>
 
-    <!-- Scroll to bottom button -->
     <button class="nav-btn" onclick="scrollToBottom()">↓ Jump to Messages</button>
 
-    <!-- Username + Password Auth Box -->
-    <div id="auth-container" style="margin: 15px 0; text-align: center;">
+    <!-- Username + Password Login Box -->
+    <div id="auth-container">
         <div id="logged-in-view" style="display: none;">
-            <span>Posting as: <strong id="active-username" style="color: #ffb703;"></strong></span>
-            <button onclick="logoutUser()" style="margin-left: 10px; padding: 4px 8px;">Switch User</button>
+            <span>Logged in as: <strong id="active-username" style="color: #ffb703;"></strong></span>
+            <button onclick="logoutUser()" class="nav-btn" style="margin-left: 10px; padding: 4px 8px; margin-bottom:0;">Switch Account</button>
         </div>
 
         <div id="login-form">
-            <input type="text" id="auth-user" placeholder="Username (max 10 chars)" maxlength="10" style="padding: 6px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
-            <input type="password" id="auth-pass" placeholder="Password (min 8 chars)" style="padding: 6px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
-            <button onclick="handleLoginOrRegister()" style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Login / Register</button>
+            <input type="text" id="auth-user" placeholder="Username (max 10 chars)" maxlength="10">
+            <input type="password" id="auth-pass" placeholder="Password (min 8 chars)">
+            <button onclick="handleLoginOrRegister()" class="auth-btn">Login / Register</button>
         </div>
     </div>
-    <!-- Message Board -->
+
+    <!-- Comments Section -->
     <div id="message-board">
-        <div id="username-display"></div>
-        
         <div id="comment-form">
-            <input type="text" id="comment-input" maxlength="25" placeholder="Leave a message (max 25 chars)...">
-            <button id="send-btn" onclick="submitMessage()">Post</button>
+            <input type="text" id="comment-input" maxlength="25" placeholder="Please log in above to comment..." disabled>
+            <button id="send-btn" onclick="submitMessage()" disabled>Post</button>
         </div>
 
         <div id="comments-list"></div>
     </div>
 
-    <!-- Scroll to top button -->
-    <button class="nav-btn" onclick="scrollToTop()">↑ Back to Top</button>
-    <div id="bottom-target"></div>
+    <button class="nav-btn" onclick="scrollToTop()" style="margin-top: 15px;">↑ Back to Top</button>
+</div>
 
-    <div id="adblock-notice">Note: If you use an adblocker, features may be restricted.</div>
+<div id="bottom-target"></div>
 
-    <script>
-        const firebaseConfig = {
-            databaseURL: "https://silkscreen-studios-default-rtdb.europe-west1.firebasedatabase.app/"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+<script>
+    // Initialize Firebase Realtime Database
+    const firebaseConfig = {
+        databaseURL: "https://silkscreen-studios-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-        const container = document.getElementById('image-container');
-        const status = document.getElementById('status');
-        const viewCountEl = document.getElementById('view-count');
-        const commentsList = document.getElementById('comments-list');
-        const commentInput = document.getElementById('comment-input');
-        const sendBtn = document.getElementById('send-btn');
-        const usernameDisplay = document.getElementById('username-display');
+    // Elements
+    const container = document.getElementById('image-container');
+    const status = document.getElementById('status');
+    const viewCountEl = document.getElementById('view-count');
+    const commentsList = document.getElementById('comments-list');
+    const commentInput = document.getElementById('comment-input');
+    const sendBtn = document.getElementById('send-btn');
 
-        let currentImageId = null;
-        let currentDbListener = null; // Store active image listener to unbind when moving to next image
-        let isCooldown = false;
-        let cooldownTimer = null;
-        const clickTimestamps = [];
-        let spamPenaltyMultiplier = parseInt(localStorage.getItem('spamMultiplier')) || 1;
+    let currentImageId = null;
+    let currentDbListener = null;
+    let isCooldown = false;
+    let cooldownTimer = null;
+    const clickTimestamps = [];
+    let spamPenaltyMultiplier = parseInt(localStorage.getItem('spamMultiplier')) || 1;
 
-        // 1. Custom 10-Character Username Prompt
-        function getOrCreateUsername() {
-            let user = localStorage.getItem('unique_username');
+    // --- AUTH LOGIC (Username + Password) ---
+    let currentLoggedUser = localStorage.getItem('claimed_username') || null;
+
+    function checkUserSession() {
+        const loggedInView = document.getElementById('logged-in-view');
+        const loginForm = document.getElementById('login-form');
+        const activeUserSpan = document.getElementById('active-username');
+
+        if (currentLoggedUser) {
+            loggedInView.style.display = 'block';
+            loginForm.style.display = 'none';
+            activeUserSpan.innerText = currentLoggedUser;
             
-            if (!user) {
-                let input = prompt("Choose a unique username (max 10 characters):");
-                
-                if (!input || input.trim() === "") {
-                    input = "User_" + Math.floor(1000 + Math.random() * 9000);
-                }
-                
-                user = input.trim().replace(/\s+/g, '_').substring(0, 10);
-                localStorage.setItem('unique_username', user);
-            }
-            
-            usernameDisplay.innerText = `Your Username: ${user}`;
-            return user;
-        }
-
-        const username = getOrCreateUsername();
-
-        // Helper function to re-enable input for a new image
-        function enableCommentForm() {
-            commentInput.disabled = false;
-            commentInput.value = "";
-            commentInput.placeholder = "Leave a message (max 25 chars)...";
-            sendBtn.disabled = false;
-        }
-
-        // Helper function to disable input if already posted on THIS image
-        function disableCommentForm() {
+            // Enable comments if user hasn't posted on current image
+            if (currentImageId) loadMessages(currentImageId);
+        } else {
+            loggedInView.style.display = 'none';
+            loginForm.style.display = 'block';
             commentInput.disabled = true;
-            commentInput.value = "";
-            commentInput.placeholder = "You have already left a message!";
+            commentInput.placeholder = "Please log in above to leave a comment.";
             sendBtn.disabled = true;
         }
-
-        // 2. Fetch and Display Messages
-        function loadMessages(imageId) {
-            // Clean up previous database listener if exists
-            if (currentDbListener && currentImageId) {
-                db.ref(`messages/${currentImageId}`).off('value', currentDbListener);
-            }
-
-            // Always reset the input form state first whenever loading a new image
-            enableCommentForm();
-            commentsList.innerHTML = "Loading messages...";
-            
-            const imageCommentsRef = db.ref(`messages/${imageId}`);
-            
-            currentDbListener = imageCommentsRef.on('value', (snapshot) => {
-                commentsList.innerHTML = "";
-                const data = snapshot.val();
-                
-                if (!data) {
-                    commentsList.innerHTML = "<p style='font-size:0.85rem; color:#666;'>No messages left for this image yet.</p>";
-                    enableCommentForm();
-                    return;
-                }
-
-                let userHasPostedOnThisImage = false;
-
-                Object.values(data).forEach(msg => {
-                    if (msg.author === username) {
-                        userHasPostedOnThisImage = true;
-                    }
-
-                    const card = document.createElement('div');
-                    card.className = 'comment-card';
-                    card.innerHTML = `
-                        <div class="comment-header">
-                            <span class="comment-author">${msg.author}</span>
-                            <span>${msg.date}</span>
-                        </div>
-                        <div class="comment-text">${msg.text}</div>
-                    `;
-                    commentsList.appendChild(card);
-                });
-
-                // Enforce 1 comment per unique image per user
-                if (userHasPostedOnThisImage) {
-                    disableCommentForm();
-                } else {
-                    enableCommentForm();
-                }
-            });
-        }
-
-        // 3. Submit Message
-        function submitMessage() {
-    if (!currentLoggedUser) {
-        alert("You must log in with a username and password first!");
-        return;
     }
 
-    const text = commentInput.value.trim();
-    if (!text || !currentImageId) return;
+    async function handleLoginOrRegister() {
+        const userInput = document.getElementById('auth-user').value.trim().replace(/\s+/g, '_');
+        const passInput = document.getElementById('auth-pass').value.trim();
 
-    const now = new Date();
-    const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear().toString().slice(-2)}`;
+        if (!userInput || userInput.length > 10) {
+            alert("Username must be between 1 and 10 characters!");
+            return;
+        }
+        if (passInput.length < 8) {
+            alert("Password must be at least 8 characters long!");
+            return;
+        }
 
-    const messageData = {
-        author: currentLoggedUser,
-        text: text.substring(0, 25),
-        date: dateStr
-    };
+        const userRef = db.ref(`users/${userInput}`);
+        const snapshot = await userRef.once('value');
 
-    db.ref(`messages/${currentImageId}`).push(messageData)
-        .then(() => {
-            commentInput.value = "";
-        })
-        .catch((error) => {
-            alert("Storage limit reached or network error! New comments cannot be accepted right now.");
+        if (snapshot.exists()) {
+            // Existing User: Verify Password
+            const savedData = snapshot.val();
+            if (savedData.password === passInput) {
+                currentLoggedUser = userInput;
+                localStorage.setItem('claimed_username', userInput);
+                alert(`Logged in as ${userInput}!`);
+                checkUserSession();
+            } else {
+                alert("Incorrect password for this username!");
+            }
+        } else {
+            // New User: Register Account
+            await userRef.set({ password: passInput });
+            currentLoggedUser = userInput;
+            localStorage.setItem('claimed_username', userInput);
+            alert(`Account created! Logged in as ${userInput}.`);
+            checkUserSession();
+        }
+    }
+
+    function logoutUser() {
+        localStorage.removeItem('claimed_username');
+        currentLoggedUser = null;
+        checkUserSession();
+    }
+
+    // --- MESSAGE LOGIC ---
+    function loadMessages(imageId) {
+        if (currentDbListener && currentImageId) {
+            db.ref(`messages/${currentImageId}`).off('value', currentDbListener);
+        }
+
+        commentsList.innerHTML = "Loading messages...";
+        
+        const imageCommentsRef = db.ref(`messages/${imageId}`);
+        
+        currentDbListener = imageCommentsRef.on('value', (snapshot) => {
+            commentsList.innerHTML = "";
+            const data = snapshot.val();
+            
+            if (!data) {
+                commentsList.innerHTML = "<p style='font-size:0.85rem; color:#666;'>No messages left for this image yet.</p>";
+                if (currentLoggedUser) {
+                    commentInput.disabled = false;
+                    commentInput.placeholder = "Leave a message (max 25 chars)...";
+                    sendBtn.disabled = false;
+                }
+                return;
+            }
+
+            let userHasPostedOnThisImage = false;
+
+            Object.values(data).forEach(msg => {
+                if (currentLoggedUser && msg.author === currentLoggedUser) {
+                    userHasPostedOnThisImage = true;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'comment-card';
+                card.innerHTML = `
+                    <div class="comment-header">
+                        <span class="comment-author">${msg.author}</span>
+                        <span>${msg.date}</span>
+                    </div>
+                    <div class="comment-text">${msg.text}</div>
+                `;
+                commentsList.appendChild(card);
+            });
+
+            // Restrict to 1 comment per user per image
+            if (userHasPostedOnThisImage) {
+                commentInput.disabled = true;
+                commentInput.value = "";
+                commentInput.placeholder = "You have already left a message!";
+                sendBtn.disabled = true;
+            } else if (currentLoggedUser) {
+                commentInput.disabled = false;
+                commentInput.placeholder = "Leave a message (max 25 chars)...";
+                sendBtn.disabled = false;
+            }
         });
-}
-        function scrollToBottom() {
-            document.getElementById('bottom-target').scrollIntoView({ behavior: 'smooth' });
-        }
-        function scrollToTop() {
-            document.getElementById('top-target').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function submitMessage() {
+        if (!currentLoggedUser) {
+            alert("Please log in first!");
+            return;
         }
 
-        function startCooldown(seconds, isSpamPenalty = false, setEndTime = true) {
-            isCooldown = true;
-            let remaining = seconds;
+        const text = commentInput.value.trim();
+        if (!text || !currentImageId) return;
 
-            if (setEndTime) {
-                const endTime = Date.now() + (seconds * 1000);
-                localStorage.setItem('timeoutEnd', endTime);
-                localStorage.setItem('timeoutType', isSpamPenalty ? 'spam' : 'rare');
+        const now = new Date();
+        const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear().toString().slice(-2)}`;
+
+        const messageData = {
+            author: currentLoggedUser,
+            text: text.substring(0, 25),
+            date: dateStr
+        };
+
+        db.ref(`messages/${currentImageId}`).push(messageData)
+            .then(() => {
+                commentInput.value = "";
+            })
+            .catch((error) => {
+                alert("Storage limit reached or error! New comments cannot be accepted right now.");
+            });
+    }
+
+    // --- UTILITIES & NAVIGATION ---
+    function scrollToBottom() {
+        document.getElementById('bottom-target').scrollIntoView({ behavior: 'smooth' });
+    }
+    function scrollToTop() {
+        document.getElementById('top-target').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function startCooldown(seconds, isSpamPenalty = false, setEndTime = true) {
+        isCooldown = true;
+        let remaining = seconds;
+
+        if (setEndTime) {
+            const endTime = Date.now() + (seconds * 1000);
+            localStorage.setItem('timeoutEnd', endTime);
+            localStorage.setItem('timeoutType', isSpamPenalty ? 'spam' : 'rare');
+        }
+        
+        const messagePrefix = isSpamPenalty 
+            ? "Don't spam click! Images are shown to look at, not speed through. Wait " 
+            : "RARE FIND! Wait ";
+
+        status.innerText = `${messagePrefix}${remaining}s to generate next image...`;
+
+        if (cooldownTimer) clearInterval(cooldownTimer);
+
+        cooldownTimer = setInterval(() => {
+            remaining--;
+            if (remaining > 0) {
+                status.innerText = `${messagePrefix}${remaining}s to generate next image...`;
+            } else {
+                clearInterval(cooldownTimer);
+                isCooldown = false;
+                localStorage.removeItem('timeoutEnd');
+                localStorage.removeItem('timeoutType');
+                status.innerText = "Tap screen or click for another image!";
             }
-            
-            const messagePrefix = isSpamPenalty 
-                ? "Don't spam click! Images are shown to look at, not speed through. Wait " 
-                : "RARE FIND! Wait ";
+        }, 1000);
+    }
 
-            status.innerText = `${messagePrefix}${remaining}s to generate next image...`;
+    function checkSpamClicks() {
+        const now = Date.now();
+        clickTimestamps.push(now);
 
-            if (cooldownTimer) clearInterval(cooldownTimer);
-
-            cooldownTimer = setInterval(() => {
-                remaining--;
-                if (remaining > 0) {
-                    status.innerText = `${messagePrefix}${remaining}s to generate next image...`;
-                } else {
-                    clearInterval(cooldownTimer);
-                    isCooldown = false;
-                    localStorage.removeItem('timeoutEnd');
-                    localStorage.removeItem('timeoutType');
-                    status.innerText = "Tap screen or click for another image!";
-                }
-            }, 1000);
+        while (clickTimestamps.length > 0 && clickTimestamps[0] <= now - 1000) {
+            clickTimestamps.shift();
         }
 
-        function checkSpamClicks() {
-            const now = Date.now();
-            clickTimestamps.push(now);
-
-            while (clickTimestamps.length > 0 && clickTimestamps[0] <= now - 1000) {
-                clickTimestamps.shift();
-            }
-
-            if (clickTimestamps.length >= 4) {
-                const timeoutDuration = 5 * spamPenaltyMultiplier;
-                spamPenaltyMultiplier++;
-                localStorage.setItem('spamMultiplier', spamPenaltyMultiplier);
-                clickTimestamps.length = 0;
-                viewCountEl.classList.remove("rare-find");
-                viewCountEl.innerText = "";
-                startCooldown(timeoutDuration, true);
-                return true;
-            }
-            return false;
-        }
-
-        async function updateViewCount(imageId) {
-            viewCountEl.classList.remove("rare-find");
-            viewCountEl.innerText = "Checking view history...";
-            
-            try {
-                const res = await fetch(`https://abacus.jasoncameron.dev/hit/silkscreen-studios.github.io/img_${imageId}`);
-                if (!res.ok) throw new Error('Counter unreachable');
-                
-                const data = await res.json();
-                const count = data.value || 1;
-                
-                if (count <= 1) {
-                    viewCountEl.innerText = "You are the first to see this image";
-                } else {
-                    viewCountEl.classList.add("rare-find");
-                    viewCountEl.innerText = `${count} people have seen this image!`;
-                    startCooldown(10, false);
-                }
-            } catch (err) {
-                viewCountEl.innerText = "You are the first to see this image";
-            }
-        }
-
-        async function fetchRandomImage() {
-            if (isCooldown) return;
-            if (checkSpamClicks()) return;
-
-            status.innerText = "Searching the web...";
+        if (clickTimestamps.length >= 4) {
+            const timeoutDuration = 5 * spamPenaltyMultiplier;
+            spamPenaltyMultiplier++;
+            localStorage.setItem('spamMultiplier', spamPenaltyMultiplier);
+            clickTimestamps.length = 0;
             viewCountEl.classList.remove("rare-find");
             viewCountEl.innerText = "";
-            
-            const apiUrl = 'https://commons.wikimedia.org/w/api.php?' + 
-                'action=query&generator=random&grnnamespace=6&grnlimit=10' + 
-                '&prop=imageinfo&iiprop=url|mime&format=json&origin=*';
-
-            try {
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-                const pages = data.query.pages;
-                
-                for (let id in pages) {
-                    const info = pages[id].imageinfo?.[0];
-                    if (info && info.mime.startsWith('image/')) {
-                        currentImageId = id;
-                        container.innerHTML = `<img src="${info.url}" alt="Random image">`;
-                        status.innerText = "Tap screen or click for another image!";
-                        
-                        updateViewCount(id);
-                        loadMessages(id);
-                        return;
-                    }
-                }
-                fetchRandomImage();
-            } catch (err) {
-                status.innerText = "Error fetching image. Tap or click to try again.";
-            }
+            startCooldown(timeoutDuration, true);
+            return true;
         }
+        return false;
+    }
 
-        container.addEventListener('click', fetchRandomImage);
-        status.addEventListener('click', fetchRandomImage);
-    </script>
+    async function updateViewCount(imageId) {
+        viewCountEl.classList.remove("rare-find");
+        viewCountEl.innerText = "Checking view history...";
+        
+        try {
+            const res = await fetch(`https://abacus.jasoncameron.dev/hit/silkscreen-studios.github.io/img_${imageId}`);
+            if (!res.ok) throw new Error('Counter unreachable');
+            
+            const data = await res.json();
+            const count = data.value || 1;
+            
+            if (count <= 1) {
+                viewCountEl.innerText = "You are the first to see this image";
+            } else {
+                viewCountEl.classList.add("rare-find");
+                viewCountEl.innerText = `${count} people have seen this image!`;
+                startCooldown(10, false);
+            }
+        } catch (err) {
+            viewCountEl.innerText = "You are the first to see this image";
+        }
+    }
+
+    async function fetchRandomImage() {
+        if (isCooldown) return;
+        if (checkSpamClicks()) return;
+
+        status.innerText = "Searching the web...";
+        viewCountEl.classList.remove("rare-find");
+        viewCountEl.innerText = "";
+        
+        const apiUrl = 'https://commons.wikimedia.org/w/api.php?' + 
+            'action=query&generator=random&grnnamespace=6&grnlimit=10' + 
+            '&prop=imageinfo&iiprop=url|mime&format=json&origin=*';
+
+        try {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            const pages = data.query.pages;
+            
+            for (let id in pages) {
+                const info = pages[id].imageinfo?.[0];
+                if (info && info.mime.startsWith('image/')) {
+                    currentImageId = id;
+                    container.innerHTML = `<img src="${info.url}" alt="Random image">`;
+                    status.innerText = "Tap screen or click for another image!";
+                    
+                    updateViewCount(id);
+                    loadMessages(id);
+                    return;
+                }
+            }
+            fetchRandomImage();
+        } catch (err) {
+            status.innerText = "Error fetching image. Tap or click to try again.";
+        }
+    }
+
+    // Initialize session state on load
+    checkUserSession();
+
+    // Event listeners
+    container.addEventListener('click', fetchRandomImage);
+    status.addEventListener('click', fetchRandomImage);
+</script>
+
 </body>
 </html>
