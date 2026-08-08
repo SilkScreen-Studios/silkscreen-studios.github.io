@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Online Rock Paper Scissors - SilkScreen Studios</title>
 
-  <!-- Google Font: Fredoka (Fredoka One) -->
+  <!-- Google Font: Fredoka -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
@@ -20,7 +20,7 @@
     }
 
     body {
-      background: #333333; /* Dark Charcoal from your site */
+      background: #333333;
       color: #ffffff;
       display: flex;
       flex-direction: column;
@@ -31,7 +31,7 @@
     }
 
     .back-link {
-      color: #a855f7; /* Purple accent */
+      color: #a855f7;
       text-decoration: none;
       font-size: 1.2rem;
       margin-bottom: 1.5rem;
@@ -48,7 +48,7 @@
       background: #262626;
       padding: 2.5rem 2rem;
       border-radius: 1.2rem;
-      border: 3px solid #3b82f6; /* Blue border accent */
+      border: 3px solid #3b82f6;
       text-align: center;
       max-width: 440px;
       width: 90%;
@@ -65,7 +65,7 @@
     #status {
       font-size: 1.2rem;
       margin: 1.5rem 0;
-      color: #38bdf8; /* Blue accent text */
+      color: #38bdf8;
     }
 
     #timer {
@@ -83,7 +83,7 @@
     }
 
     button {
-      background: #a855f7; /* Purple buttons */
+      background: #a855f7;
       color: #ffffff;
       border: none;
       padding: 0.8rem 1.4rem;
@@ -111,7 +111,7 @@
     }
 
     #match-btn {
-      background: #38bdf8; /* Blue match button */
+      background: #38bdf8;
       color: #000000;
       width: 100%;
       font-size: 1.3rem;
@@ -165,7 +165,9 @@
   </div>
 
   <script>
-    const ROOM_PREFIX = "silkscreen_rps_lobby_";
+    // Pool ID for SilkScreen Studios RPS lobby
+    const HOST_ID = "silkscreen-rps-host-v1";
+    
     let peer = null;
     let conn = null;
     let myMove = null;
@@ -183,22 +185,34 @@
 
     function startMatchmaking() {
       resetUI();
-      statusEl.textContent = "Connecting to matchmaking...";
+      statusEl.textContent = "Connecting to lobby...";
       matchBtn.disabled = true;
 
-      const hostRoomId = ROOM_PREFIX + "room1";
+      // Try connecting as a client to the host ID
       peer = new Peer();
 
-      peer.on('open', () => {
-        statusEl.textContent = "Looking for an opponent...";
-        conn = peer.connect(hostRoomId);
-        setupConnection(false);
+      peer.on('open', (id) => {
+        statusEl.textContent = "Looking for active game...";
+        
+        // Attempt connection to the established host
+        const outgoingConn = peer.connect(HOST_ID, { reliable: true });
 
+        let connected = false;
+
+        outgoingConn.on('open', () => {
+          connected = true;
+          conn = outgoingConn;
+          setupConnection();
+        });
+
+        // If host isn't available after 1.8s, become the host yourself
         setTimeout(() => {
-          if (!conn || !conn.open) {
-            if (conn) conn.close();
+          if (!connected) {
+            outgoingConn.close();
             peer.destroy();
-            peer = new Peer(hostRoomId);
+
+            // Register as the host room
+            peer = new Peer(HOST_ID);
 
             peer.on('open', () => {
               statusEl.textContent = "Waiting for an opponent to join...";
@@ -206,23 +220,30 @@
 
             peer.on('connection', (incomingConn) => {
               conn = incomingConn;
-              setupConnection(true);
+              setupConnection();
             });
 
-            peer.on('error', () => {
-              statusEl.textContent = "Retrying matchmaking...";
-              setTimeout(startMatchmaking, 1000);
+            peer.on('error', (err) => {
+              if (err.type === 'unavailable-id') {
+                // If someone else claimed host in the last second, retry connection
+                statusEl.textContent = "Opponent found! Connecting...";
+                setTimeout(startMatchmaking, 500);
+              }
             });
           }
-        }, 1500);
+        }, 1800);
+      });
+
+      peer.on('error', (err) => {
+        if (err.type === 'peer-unavailable') {
+          // Normal during host fallback phase
+        }
       });
     }
 
-    function setupConnection(isHost) {
-      conn.on('open', () => {
-        statusEl.textContent = "Match found! Get ready...";
-        setTimeout(startRound, 1000);
-      });
+    function setupConnection() {
+      statusEl.textContent = "Match found! Get ready...";
+      setTimeout(startRound, 1000);
 
       conn.on('data', (data) => {
         if (data.type === 'move') {
