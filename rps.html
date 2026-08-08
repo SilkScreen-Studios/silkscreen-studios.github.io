@@ -61,7 +61,6 @@
     .lose { color: var(--lose-color); }
     .draw { color: var(--draw-color); }
 
-    /* Username Setup Overlay */
     .user-setup { background: #1a1e21; border-radius: 12px; padding: 18px; margin-bottom: 1.25rem; border: 1px solid #3d4246; }
     .user-setup input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #555; background: #0f1214; color: #fff; font-size: 1rem; text-align: center; margin-bottom: 10px; }
     .rematch-agree-text { margin-top: 6px; font-size: 0.85rem; color: var(--cyan-link); display: none; }
@@ -74,17 +73,17 @@
     <h1>Rock Paper Scissors</h1>
     <p class="subtitle">Silkscreen Studios Live Multiplayer</p>
 
-    <!-- DEVICE USERNAME CREATION (First time only) -->
+    <!-- DEVICE USERNAME CREATION -->
     <div id="usernameSection" class="user-setup">
       <p style="margin-bottom: 8px; font-size: 0.9rem;">Set Device Username (Max 10 Chars):</p>
       <input type="text" id="usernameInput" maxlength="10" placeholder="Username">
       <button class="btn btn-find" onclick="saveDeviceUser()">Lock & Save to Device</button>
     </div>
 
-    <!-- MAIN GAME AREA (Hidden until username set) -->
+    <!-- MAIN GAME AREA -->
     <div id="gameContainer" style="display:none;">
       
-      <!-- STATS DISPLAY (Firebase Sync) -->
+      <!-- STATS DISPLAY -->
       <div class="stats-bar">
         <div class="stats-item">Player: <span id="displayUsername" style="color:var(--cyan-link)">-</span></div>
         <div class="stats-item">Wins: <span id="statWins" class="stat-w">0</span></div>
@@ -117,9 +116,8 @@
 
   <script>
     // --- CONFIGURATION ---
-    // REPLACE THIS WITH YOUR FIREBASE REALTIME DATABASE URL (e.g. "https://your-app-default-rtdb.firebaseio.com")
-    const FIREBASE_DB_URL = "https://silkscreenrockpaper-default-rtdb.europe-west1.firebasedatabase.app";
-    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v4_firebase_locked";
+    const FIREBASE_DB_URL = "https://silkscreen-studios-default-rtdb.firebaseio.com";
+    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v5_disconnect_handled";
 
     let deviceUser = null;
     let deviceUUID = null;
@@ -136,6 +134,9 @@
     let timerInterval = null;
     let broadcastInterval = null;
     let rematchTimerInterval = null;
+    let pingInterval = null;
+    let lastPingTime = Date.now();
+    
     let timeLeft = 5;
     let rematchTimeLeft = 8;
     
@@ -162,7 +163,6 @@
     // --- DEVICE IDENTITY & FIREBASE ---
 
     function initDeviceIdentity() {
-      // Create permanent UUID per device browser if not present
       deviceUUID = localStorage.getItem('rps_device_uuid');
       if (!deviceUUID) {
         deviceUUID = "dev_" + Math.random().toString(36).substring(2, 12);
@@ -204,7 +204,7 @@
           userStats = data.stats;
           updateStatsUI();
         } else {
-          saveStatsToFirebase(); // Init record
+          saveStatsToFirebase();
         }
       } catch (e) {
         console.error("Firebase read error:", e);
@@ -216,6 +216,7 @@
       try {
         await fetch(`${FIREBASE_DB_URL}/users/${deviceUUID}.json`, {
           method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: deviceUser,
             stats: userStats,
@@ -233,7 +234,7 @@
       statDraws.textContent = userStats.draws;
     }
 
-    // --- MQTT & MULTIPLAYER MATCHMAKING ---
+    // --- MULTIPLAYER MATCHMAKING ---
 
     function connectBroker() {
       client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
@@ -248,9 +249,7 @@
         const msg = JSON.parse(payload.toString());
 
         if (topic === LOBBY_TOPIC) {
-          // SEARCHING GUEST -> FINDING HOST
           if (state === "MATCHING" && msg.type === "WAITING" && msg.uuid !== deviceUUID) {
-            // Strictly prevent matching with the exact previous opponent device UUID
             if (msg.uuid !== lastOpponentUUID) {
               state = "PENDING_ACK";
               client.publish(LOBBY_TOPIC, JSON.stringify({
@@ -261,8 +260,6 @@
               }));
             }
           }
-          
-          // WAITING HOST -> ACCEPTING GUEST
           else if (state === "WAITING" && msg.type === "JOIN_REQUEST" && msg.hostUUID === deviceUUID) {
             state = "IN_GAME";
             clearInterval(broadcastInterval);
@@ -284,8 +281,6 @@
 
             startMatch();
           }
-
-          // GUEST -> RECEIVED ACK FROM HOST
           else if (state === "PENDING_ACK" && msg.type === "MATCH_ACK" && msg.guestUUID === deviceUUID) {
             state = "IN_GAME";
             clearInterval(broadcastInterval);
@@ -303,7 +298,9 @@
         
         // PRIVATE ROOM TRAFFIC
         else if (topic === gameRoomTopic && msg.uuid !== deviceUUID) {
-          if (msg.type === "CHOICE") {
+          if (msg.type === "PING") {
+            lastPingTime = Date.now();
+          } else if (msg.type === "CHOICE") {
             opponentChoice = msg.value;
             checkGameEnd();
           } else if (msg.type === "DRAW_AUTORESET") {
@@ -312,23 +309,24 @@
           } else if (msg.type === "REMATCH_REQUEST") {
             opponentWantsRematch();
           } else if (msg.type === "DISCONNECT") {
-            opponentDisconnectedInDecision();
+            handleOpponentDisconnect();
           }
         }
       });
     }
 
     function startNewMatchmaking() {
-      if (lastOpponentUUID && state === "REMATCH_DECISION") {
-          client.publish(gameRoomTopic, JSON.stringify({
-            type: "DISCONNECT",
-            uuid: deviceUUID
-          }));
+      if (gameRoomTopic && state === "REMATCH_DECISION") {
+        client.publish(gameRoomTopic, JSON.stringify({
+          type: "DISCONNECT",
+          uuid: deviceUUID
+        }));
       }
       _startSearchInternal();
     }
 
     function _startSearchInternal() {
+      stopHeartbeat();
       resetRematchUI();
       findBtn.disabled = true;
       rematchBtn.style.display = 'none';
@@ -353,9 +351,65 @@
       }, 1500);
     }
 
+    // --- HEARTBEAT & DISCONNECT MANAGEMENT ---
+
+    function startHeartbeat() {
+      lastPingTime = Date.now();
+      clearInterval(pingInterval);
+
+      pingInterval = setInterval(() => {
+        if (state === "IN_GAME") {
+          // Send ping to opponent
+          client.publish(gameRoomTopic, JSON.stringify({
+            type: "PING",
+            uuid: deviceUUID
+          }));
+
+          // If no ping received for > 2.5 seconds, trigger disconnect
+          if (Date.now() - lastPingTime > 2500) {
+            handleOpponentDisconnect();
+          }
+        }
+      }, 1000);
+    }
+
+    function stopHeartbeat() {
+      clearInterval(pingInterval);
+    }
+
+    function handleOpponentDisconnect() {
+      stopHeartbeat();
+      clearInterval(timerInterval);
+      clearInterval(rematchTimerInterval);
+
+      disableChoices();
+      choiceBtns.forEach(btn => btn.classList.remove('selected'));
+
+      timerBar.style.display = 'none';
+      resultEl.innerHTML = `<span class="draw">Match Cancelled</span>`;
+      setLobbyStatus(`${opponentUsername} disconnected. No stats recorded.`, "normal");
+
+      resetRematchUI();
+      findBtn.textContent = "Find New Opponent";
+      findBtn.style.display = "inline-block";
+      findBtn.disabled = false;
+      state = "IDLE";
+    }
+
+    // Inform opponent if tab is closed or navigated away
+    window.addEventListener("beforeunload", () => {
+      if (gameRoomTopic && (state === "IN_GAME" || state === "REMATCH_DECISION")) {
+        client.publish(gameRoomTopic, JSON.stringify({
+          type: "DISCONNECT",
+          uuid: deviceUUID
+        }));
+      }
+    });
+
     // --- GAMEPLAY ROUNDS ---
 
     function startMatch() {
+      startHeartbeat();
       setLobbyStatus(`vs ${opponentUsername}! Choose in 5s!`, "cyan");
       enableChoices();
       findBtn.style.display = 'none';
@@ -373,6 +427,13 @@
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
           disableChoices();
+
+          // If disconnected during choice phase, cancel without auto-picking
+          if (Date.now() - lastPingTime > 2500) {
+            handleOpponentDisconnect();
+            return;
+          }
+
           if (!myChoice) {
             const options = ['rock', 'paper', 'scissors'];
             makeChoice(options[Math.floor(Math.random() * 3)]);
@@ -401,6 +462,7 @@
     function checkGameEnd() {
       if (myChoice && opponentChoice) {
         clearInterval(timerInterval);
+        stopHeartbeat();
         timerBar.style.display = 'none';
 
         const outcome = getWinner(myChoice, opponentChoice);
@@ -546,17 +608,6 @@
       statusEl.classList.remove('active', 'cyan');
       if (context === "active") statusEl.classList.add('active');
       if (context === "cyan") statusEl.classList.add('cyan');
-    }
-
-    function opponentDisconnectedInDecision() {
-      if (state === "REMATCH_DECISION") {
-        setLobbyStatus(`${opponentUsername} left.`, "normal");
-        clearInterval(rematchTimerInterval);
-        rematchBtn.style.display = 'none';
-        findBtn.textContent = "Find New Opponent";
-        lastOpponentUUID = null;
-        findBtn.disabled = false;
-      }
     }
 
     initDeviceIdentity();
