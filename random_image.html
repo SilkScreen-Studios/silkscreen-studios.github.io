@@ -168,21 +168,19 @@
     <!-- Scroll to bottom button -->
     <button class="nav-btn" onclick="scrollToBottom()">↓ Jump to Messages</button>
 
-    <!-- Step 3: Account / Authentication Box -->
+    <!-- Username + Password Auth Box -->
     <div id="auth-container" style="margin: 15px 0; text-align: center;">
-        <div id="user-info" style="display: none;">
-            <span>Logged in as: <strong id="user-email" style="color: #ffb703;"></strong></span>
-            <button onclick="logout()" style="margin-left: 10px; padding: 4px 8px;">Logout</button>
+        <div id="logged-in-view" style="display: none;">
+            <span>Posting as: <strong id="active-username" style="color: #ffb703;"></strong></span>
+            <button onclick="logoutUser()" style="margin-left: 10px; padding: 4px 8px;">Switch User</button>
         </div>
 
         <div id="login-form">
-            <input type="email" id="auth-email" placeholder="Email address" style="padding: 6px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
-            <input type="password" id="auth-password" placeholder="Password" style="padding: 6px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
-            <button onclick="login()" style="padding: 6px 10px; background: #2196F3; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Sign In</button>
-            <button onclick="register()" style="padding: 6px 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Sign Up</button>
+            <input type="text" id="auth-user" placeholder="Username (max 10 chars)" maxlength="10" style="padding: 6px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
+            <input type="password" id="auth-pass" placeholder="Password (min 8 chars)" style="padding: 6px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff;">
+            <button onclick="handleLoginOrRegister()" style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Login / Register</button>
         </div>
     </div>
-
     <!-- Message Board -->
     <div id="message-board">
         <div id="username-display"></div>
