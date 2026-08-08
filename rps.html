@@ -6,41 +6,73 @@
   <title>Online Rock Paper Scissors | Silkscreen Studios</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: #1e293b; padding: 2rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 480px; width: 100%; border: 1px solid #334155; }
-    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: #38bdf8; }
-    p { color: #94a3b8; margin-bottom: 1.5rem; font-size: 0.95rem; }
+    /* Color Palette derived from image_0.png */
+    :root {
+      --bg-color: #212529; /* Main background */
+      --card-color: #2b3035; /* Card background */
+      --text-white: #ffffff; /* Headings */
+      --text-dim: #737c85; /* Notes/visits */
+      --purple-link: #8a2be2; /* Active purple */
+      --cyan-link: #00bfff; /* Active cyan */
+      --btn-bg: #444; /* Default button */
+      --choice-border-selected: var(--cyan-link);
+      --choice-bg-selected: #1a4a61;
+      --win-color: #00ff88;
+      --lose-color: #ff4444;
+      --draw-color: #ffd700;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+    body { background: var(--bg-color); color: var(--text-white); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
     
-    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-bottom: 1.5rem; background: #334155; color: #cbd5e1; }
-    .status-badge.active { background: #0369a1; color: #e0f2fe; }
+    .card { background: var(--card-color); padding: 2rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 480px; width: 100%; border: 1px solid #444; }
     
-    .timer-bar { width: 100%; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 1.5rem; display: none; }
-    .timer-progress { height: 100%; width: 100%; background: #ef4444; transition: width 1s linear; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: var(--text-white); }
+    p.dim-note { color: var(--text-dim); margin-bottom: 1.5rem; font-size: 0.85rem; }
+    p.game-p { color: var(--text-white); margin-bottom: 1.5rem; font-size: 0.95rem; }
+    
+    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-bottom: 1.5rem; background: var(--btn-bg); color: var(--text-dim); transition: all 0.2s; }
+    .status-badge.active { background: var(--purple-link); color: var(--text-white); }
+    .status-badge.cyan { background: var(--cyan-link); color: #000; }
+    
+    .timer-bar { width: 100%; height: 8px; background: #111; border-radius: 4px; overflow: hidden; margin-bottom: 1.5rem; display: none; }
+    .timer-progress { height: 100%; width: 100%; background: var(--cyan-link); transition: width 1s linear; }
 
     .choices { display: flex; gap: 12px; justify-content: center; margin-bottom: 1.5rem; }
-    .choice-btn { background: #334155; border: 2px solid transparent; font-size: 2.5rem; padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s; flex: 1; }
-    .choice-btn:hover:not(:disabled) { transform: translateY(-4px); background: #475569; border-color: #38bdf8; }
+    .choice-btn { background: var(--btn-bg); border: 2px solid transparent; font-size: 2.5rem; padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s; flex: 1; }
+    .choice-btn:hover:not(:disabled) { transform: translateY(-4px); background: #555; border-color: var(--purple-link); }
     .choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .choice-btn.selected { border-color: #22c55e; background: #14532d; }
+    .choice-btn.selected { border-color: var(--choice-border-selected); background: var(--choice-bg-selected); }
 
-    .btn { background: #0284c7; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; width: 100%; }
-    .btn:hover:not(:disabled) { background: #0369a1; }
-    .btn:disabled { background: #475569; cursor: not-allowed; }
+    .btn-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 1rem; }
+    .btn { color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; width: 100%; text-decoration: none; display: flex; justify-content: center; align-items: center;}
+    .btn:hover:not(:disabled) { opacity: 0.9; }
+    .btn:disabled { background: #333; color: var(--text-dim); cursor: not-allowed; }
+    
+    /* Specific btn colors based on context */
+    .btn-find { background: var(--purple-link); }
+    .btn-rematch { background: var(--cyan-link); color: #000; }
+    .btn-rematch:disabled { background: #1a4a61; color: var(--text-dim); }
 
-    .result-display { font-size: 1.25rem; font-weight: bold; margin: 1rem 0; min-height: 30px; }
-    .win { color: #4ade80; }
-    .lose { color: #f87171; }
-    .draw { color: #facc15; }
+    .result-display { font-size: 1.25rem; font-weight: bold; margin: 1rem 0; min-height: 30px; color: var(--text-white); }
+    .win { color: var(--win-color); }
+    .lose { color: var(--lose-color); }
+    .draw { color: var(--draw-color); }
+
+    /* For the Rematch Agree Text */
+    .rematch-agree-text { margin-top: 8px; font-size: 0.85rem; color: var(--text-dim); display: none; }
+    .rematch-agree-text.active { display: block; color: var(--cyan-link); }
+
   </style>
 </head>
 <body>
 
   <div class="card">
     <h1>Rock Paper Scissors</h1>
-    <p>Silkscreen Studios Live Multiplayer</p>
+    <p class="game-p">Silkscreen Studios Live Multiplayer</p>
+    <p class="dim-note">Matches based on availability. Stay on page.</p>
 
-    <div id="status" class="status-badge">Connecting to server...</div>
+    <div id="status" class="status-badge">Connecting...</div>
 
     <div class="timer-bar" id="timerBar">
       <div class="timer-progress" id="timerProgress"></div>
@@ -54,11 +86,15 @@
 
     <div id="result" class="result-display"></div>
 
-    <button id="actionBtn" class="btn" onclick="startMatchmaking()" disabled>Find Opponent</button>
+    <div class="btn-controls">
+      <button id="findBtn" class="btn btn-find" onclick="startNewMatchmaking()" disabled>Find Opponent</button>
+      <button id="rematchBtn" class="btn btn-rematch" style="display:none;" onclick="requestRematch()">Request Rematch (8s)</button>
+      <div id="rematchAgree" class="rematch-agree-text">Opponent wants a rematch! Agree?</div>
+    </div>
   </div>
 
   <script>
-    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v2";
+    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v3_color_agreed";
     const myClientId = "player_" + Math.random().toString(36).substring(2, 10);
     
     let client = null;
@@ -67,49 +103,66 @@
     let opponentChoice = null;
     let timerInterval = null;
     let broadcastInterval = null;
+    let rematchTimerInterval = null;
     let timeLeft = 5;
-    let state = "IDLE"; // IDLE, WAITING, MATCHING, IN_GAME
+    let rematchTimeLeft = 8;
+    let lastOpponentId = null;
+    
+    // IDLE, MATCHING, PENDING_ACK (Waiting for host), IN_GAME, REMATCH_DECISION (post-game)
+    let state = "IDLE"; 
+    let rematchMyAgree = false;
+    let rematchOppAgree = false;
 
     const statusEl = document.getElementById('status');
     const resultEl = document.getElementById('result');
-    const actionBtn = document.getElementById('actionBtn');
+    const findBtn = document.getElementById('findBtn');
+    const rematchBtn = document.getElementById('rematchBtn');
+    const rematchAgreeText = document.getElementById('rematchAgree');
     const timerBar = document.getElementById('timerBar');
     const timerProgress = document.getElementById('timerProgress');
     const choiceBtns = ['rock', 'paper', 'scissors'].map(id => document.getElementById(`btn-${id}`));
 
     function connectBroker() {
+      // Clear last search info on reload
+      sessionStorage.removeItem('rpsLastOpponent');
+      lastOpponentId = null;
+
+      // Free public broker
       client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
       client.on('connect', () => {
-        statusEl.textContent = "Online - Click to Play";
-        actionBtn.disabled = false;
+        setLobbyStatus("Online", "normal");
+        findBtn.disabled = false;
         client.subscribe(LOBBY_TOPIC);
       });
 
       client.on('message', (topic, payload) => {
         const msg = JSON.parse(payload.toString());
 
-        // Global Lobby Traffic
+        // GLOBAL LOBBY
         if (topic === LOBBY_TOPIC) {
-          // Case 1: We are searching, and see a WAITING player
+          // I am a GUEST looking for a match, I find a WAITING host that is NOT my last opponent
           if (state === "MATCHING" && msg.type === "WAITING" && msg.sender !== myClientId) {
-            state = "PENDING_ACK";
-            client.publish(LOBBY_TOPIC, JSON.stringify({
-              type: "JOIN_REQUEST",
-              hostId: msg.sender,
-              guestId: myClientId
-            }));
+            if (msg.sender !== lastOpponentId) {
+              state = "PENDING_ACK";
+              client.publish(LOBBY_TOPIC, JSON.stringify({
+                type: "JOIN_REQUEST",
+                hostId: msg.sender,
+                guestId: myClientId
+              }));
+            }
           }
           
-          // Case 2: We were WAITING, and received a JOIN_REQUEST
+          // I was WAITING, I get a JOIN_REQUEST from a valid guest
           else if (state === "WAITING" && msg.type === "JOIN_REQUEST" && msg.hostId === myClientId) {
-            // Lock room state to block 3rd-wheel players
+            // Lock room state to block others
             state = "IN_GAME";
             clearInterval(broadcastInterval);
+            lastOpponentId = msg.guestId; // Remember them
             gameRoomTopic = "silkscreen/rps/room/" + myClientId + "_" + msg.guestId;
             client.subscribe(gameRoomTopic);
 
-            // Confirm match to the guest
+            // Ack to guest
             client.publish(LOBBY_TOPIC, JSON.stringify({
               type: "MATCH_ACK",
               hostId: myClientId,
@@ -124,6 +177,7 @@
           else if (state === "PENDING_ACK" && msg.type === "MATCH_ACK" && msg.guestId === myClientId) {
             state = "IN_GAME";
             clearInterval(broadcastInterval);
+            lastOpponentId = msg.hostId; // Remember them
             gameRoomTopic = msg.roomTopic;
             client.subscribe(gameRoomTopic);
 
@@ -131,25 +185,52 @@
           }
         } 
         
-        // Private Game Room Traffic
+        // PRIVATE GAME ROOM
         else if (topic === gameRoomTopic && msg.sender !== myClientId) {
           if (msg.type === "CHOICE") {
             opponentChoice = msg.value;
             checkGameEnd();
-          } else if (msg.type === "REMATCH") {
-            resetMatch();
+          } else if (msg.type === "DRAW_AUTORESET") {
+            // Both clients got a DRAW and opponent is ready for rematch in 1s
+            statusEl.textContent = "Draw! Resetting match...";
+            resetMatchForNextRound(); 
+          } else if (msg.type === "REMATCH_REQUEST") {
+            opponentWantsRematch();
+          } else if (msg.type === "REMATCH_AGREE") {
+            opponentAgreed();
+          } else if (msg.type === "DISCONNECT") {
+            opponentDisconnectedInDecision();
           }
         }
       });
     }
 
-    function startMatchmaking() {
-      actionBtn.disabled = true;
+    // --- Matchmaking ---
+
+    function startNewMatchmaking() {
+      // This is the main button, which means "Forget the last person if necessary"
+      if (lastOpponentId && state === "REMATCH_DECISION") {
+          client.publish(gameRoomTopic, JSON.stringify({
+            type: "DISCONNECT",
+            sender: myClientId
+          }));
+          lastOpponentId = null; // User clicked "find new", so forget the last one.
+      }
+      _startSearchInternal();
+    }
+
+    function _startSearchInternal() {
+      resetRematchUI();
+      findBtn.disabled = true;
+      rematchBtn.style.display = 'none';
       resultEl.textContent = "";
-      statusEl.textContent = "Searching for online opponent...";
-      statusEl.classList.add('active');
+      
+      let statusText = "Searching for opponent...";
+      if (lastOpponentId) statusText = "Searching (avoiding last opponent)...";
+      setLobbyStatus(statusText, "active");
 
       state = "MATCHING";
+      myClientId_original = myClientId; // used for debug if needed
 
       // Periodically broadcast WAITING status if no immediate match is found
       clearInterval(broadcastInterval);
@@ -164,15 +245,19 @@
       }, 1500);
     }
 
+    // --- Game Logic ---
+
     function startMatch() {
-      statusEl.textContent = "Matched! Choose in 5s!";
+      setLobbyStatus("Matched! Choose in 5s!", "cyan");
       enableChoices();
+      findBtn.style.display = 'none';
       myChoice = null;
       opponentChoice = null;
       timeLeft = 5;
       timerBar.style.display = 'block';
       timerProgress.style.width = '100%';
 
+      // Choice selection time
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         timeLeft--;
@@ -183,7 +268,7 @@
           disableChoices();
           if (!myChoice) {
             const options = ['rock', 'paper', 'scissors'];
-            makeChoice(options[Math.floor(Math.random() * 3)]);
+            makeChoice(options[Math.floor(Math.random() * 3)]); // Auto-pick random
           }
         }
       }, 1000);
@@ -214,21 +299,124 @@
         const outcome = getWinner(myChoice, opponentChoice);
         const emojiMap = { rock: '🪨', paper: '📄', scissors: '✂️' };
 
-        if (outcome === 'win') {
-          resultEl.innerHTML = `<span class="win">You Win!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
-        } else if (outcome === 'lose') {
-          resultEl.innerHTML = `<span class="lose">You Lose!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
-        } else {
+        if (outcome === 'draw') {
           resultEl.innerHTML = `<span class="draw">Draw!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
-        }
+          // Draw logic: Keep current opponent and continue in same room automatically
+          setLobbyStatus("Draw! Next round...", "active");
+          
+          // Signal to opponent we are DRAW_AUTORESETing (both will publish)
+          client.publish(gameRoomTopic, JSON.stringify({
+            type: "DRAW_AUTORESET",
+            sender: myClientId
+          }));
 
-        actionBtn.textContent = "Play Again";
-        actionBtn.disabled = false;
-        actionBtn.onclick = requestRematch;
+          // Local quick reset
+          setTimeout(resetMatchForNextRound, 1000); 
+
+        } else {
+          // Win/Lose logic
+          if (outcome === 'win') {
+            resultEl.innerHTML = `<span class="win">You Win!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
+          } else if (outcome === 'lose') {
+            resultEl.innerHTML = `<span class="lose">You Lose!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
+          }
+          
+          showRematchDecisionPhase();
+        }
       } else if (myChoice) {
-        statusEl.textContent = "Choice submitted! Waiting for opponent...";
+        setLobbyStatus("Choice submitted! Waiting...", "cyan");
       }
     }
+
+    // --- Post-Game Decision Phase (Win/Lose) ---
+
+    function showRematchDecisionPhase() {
+      state = "REMATCH_DECISION";
+      setLobbyStatus("Game Over", "normal");
+      
+      findBtn.textContent = "Find New Opponent"; // Changes from main initial button
+      findBtn.style.display = 'inline-block';
+      findBtn.disabled = false;
+      
+      rematchBtn.textContent = "Request Rematch (8s)";
+      rematchBtn.style.display = 'inline-block';
+      rematchBtn.disabled = false;
+      rematchMyAgree = false;
+      rematchOppAgree = false;
+
+      // Start the 8s rematch countdown
+      rematchTimeLeft = 8;
+      clearInterval(rematchTimerInterval);
+      rematchTimerInterval = setInterval(() => {
+        rematchTimeLeft--;
+        rematchBtn.textContent = `Request Rematch (${rematchTimeLeft}s)`;
+        
+        if (rematchTimeLeft <= 0) {
+          clearInterval(rematchTimerInterval);
+          rematchTimerExpires();
+        }
+      }, 1000);
+    }
+
+    function resetRematchUI() {
+        clearInterval(rematchTimerInterval);
+        rematchBtn.textContent = "Request Rematch (8s)";
+        rematchBtn.style.display = "none";
+        rematchAgreeText.classList.remove('active');
+        findBtn.textContent = "Find Opponent";
+    }
+
+    // --- Rematch Mutuality Handling ---
+
+    function requestRematch() {
+      if (rematchMyAgree) return; // Prevent double clicks
+      rematchMyAgree = true;
+      rematchBtn.disabled = true; // Disable local button
+
+      // Publish local agreement/request
+      client.publish(gameRoomTopic, JSON.stringify({
+        type: "REMATCH_REQUEST",
+        sender: myClientId
+      }));
+      checkRematchConsensus();
+    }
+
+    function opponentWantsRematch() {
+      if (state !== "REMATCH_DECISION") return;
+      rematchOppAgree = true;
+      // UI update for "agree?"
+      rematchAgreeText.classList.add('active');
+      rematchAgreeText.textContent = "Opponent requested rematch. Click 'Request Rematch' to agree!";
+      // We already have "Request Rematch" button available.
+      
+      checkRematchConsensus();
+    }
+
+    function checkRematchConsensus() {
+        if (rematchMyAgree && rematchOppAgree) {
+            // consenso!
+            clearInterval(rematchTimerInterval);
+            resetMatchForNextRound();
+        }
+    }
+
+    function rematchTimerExpires() {
+        // If consensus isn't reached, handle it
+        if (!rematchMyAgree || !rematchOppAgree) {
+            setLobbyStatus("Rematch expired.", "normal");
+            disableChoices();
+            choiceBtns.forEach(btn => btn.classList.remove('selected'));
+            rematchBtn.disabled = true;
+            rematchBtn.textContent = "Rematch Expired";
+            rematchAgreeText.classList.remove('active');
+            
+            // Allow them to click "Find New" if they haven't already
+            findBtn.textContent = "Find New Opponent";
+            findBtn.disabled = false;
+        }
+    }
+
+    // --- Utility ---
 
     function getWinner(p1, p2) {
       if (p1 === p2) return 'draw';
@@ -242,16 +430,12 @@
       return 'lose';
     }
 
-    function requestRematch() {
-      client.publish(gameRoomTopic, JSON.stringify({
-        type: "REMATCH",
-        sender: myClientId
-      }));
-      resetMatch();
-    }
-
-    function resetMatch() {
+    function resetMatchForNextRound() {
+      // Draw reset / rematch agreement
+      clearInterval(rematchTimerInterval);
+      resetRematchUI();
       choiceBtns.forEach(btn => btn.classList.remove('selected'));
+      state = "IN_GAME";
       startMatch();
     }
 
@@ -261,6 +445,24 @@
 
     function disableChoices() {
       choiceBtns.forEach(btn => btn.disabled = true);
+    }
+
+    function setLobbyStatus(text, context) {
+        statusEl.textContent = text;
+        statusEl.classList.remove('active', 'cyan');
+        if (context === "active") statusEl.classList.add('active');
+        if (context === "cyan") statusEl.classList.add('cyan');
+    }
+
+    function opponentDisconnectedInDecision() {
+        if (state === "REMATCH_DECISION") {
+            setLobbyStatus("Opponent disconnected.", "normal");
+            clearInterval(rematchTimerInterval);
+            rematchBtn.style.display = 'none';
+            findBtn.textContent = "Find New Opponent";
+            lastOpponentId = null; // Can immediately forget them
+            findBtn.disabled = false;
+        }
     }
 
     connectBroker();
