@@ -294,6 +294,7 @@
     }
 
     // --- MESSAGE LOGIC ---
+    // --- MESSAGE LOGIC (Slim Storage + Backward Compatible) ---
     function loadMessages(imageId) {
         if (currentDbListener && currentImageId) {
             db.ref(`messages/${currentImageId}`).off('value', currentDbListener);
@@ -320,7 +321,12 @@
             let userHasPostedOnThisImage = false;
 
             Object.values(data).forEach(msg => {
-                if (currentLoggedUser && msg.author === currentLoggedUser) {
+                // Reads slim keys ('a', 't') while keeping support for old keys ('author', 'text', 'date')
+                const author = msg.a || msg.author || "Anonymous";
+                const commentText = msg.t || msg.text || "";
+                const dateStr = msg.date || "";
+
+                if (currentLoggedUser && author === currentLoggedUser) {
                     userHasPostedOnThisImage = true;
                 }
 
@@ -328,10 +334,10 @@
                 card.className = 'comment-card';
                 card.innerHTML = `
                     <div class="comment-header">
-                        <span class="comment-author">${msg.author}</span>
-                        <span>${msg.date}</span>
+                        <span class="comment-author">${author}</span>
+                        <span>${dateStr}</span>
                     </div>
-                    <div class="comment-text">${msg.text}</div>
+                    <div class="comment-text">${commentText}</div>
                 `;
                 commentsList.appendChild(card);
             });
@@ -359,13 +365,10 @@
         const text = commentInput.value.trim();
         if (!text || !currentImageId) return;
 
-        const now = new Date();
-        const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear().toString().slice(-2)}`;
-
+        // Slim payload: 'a' for author, 't' for text (drops date to save space)
         const messageData = {
-            author: currentLoggedUser,
-            text: text.substring(0, 25),
-            date: dateStr
+            a: currentLoggedUser,
+            t: text.substring(0, 25)
         };
 
         db.ref(`messages/${currentImageId}`).push(messageData)
