@@ -125,10 +125,11 @@
   <script>
     // --- CONFIGURATION ---
     const FIREBASE_DB_URL = "https://silkscreenrockpaper-default-rtdb.europe-west1.firebasedatabase.app";
-    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v6_fredoka_secured";
+    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v7_secured";
 
     let deviceUser = null;
     let deviceUUID = null;
+    let deviceSecretToken = null;
     let userStats = { wins: 0, losses: 0, draws: 0, total: 0 };
 
     let client = null;
@@ -168,13 +169,19 @@
     const timerProgress = document.getElementById('timerProgress');
     const choiceBtns = ['rock', 'paper', 'scissors'].map(id => document.getElementById(`btn-${id}`));
 
-    // --- DEVICE IDENTITY & FIREBASE ---
+    // --- DEVICE IDENTITY & SECURE TOKENS ---
 
     function initDeviceIdentity() {
       deviceUUID = localStorage.getItem('rps_device_uuid');
       if (!deviceUUID) {
         deviceUUID = "dev_" + Math.random().toString(36).substring(2, 12);
         localStorage.setItem('rps_device_uuid', deviceUUID);
+      }
+
+      deviceSecretToken = localStorage.getItem('rps_secret_token');
+      if (!deviceSecretToken) {
+        deviceSecretToken = "tok_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('rps_secret_token', deviceSecretToken);
       }
 
       deviceUser = localStorage.getItem('rps_username');
@@ -227,6 +234,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: deviceUser,
+            secretToken: deviceSecretToken,
             stats: userStats,
             lastUpdated: new Date().toISOString()
           })
