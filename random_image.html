@@ -238,52 +238,47 @@
     }
 
     async function handleLoginOrRegister() {
-        const userEl = document.getElementById('auth-user');
-        const passEl = document.getElementById('auth-pass');
-        
-        if (!userEl || !passEl) {
-            alert("Login form elements not found.");
-            return;
-        }
-
-        const userInput = userEl.value.trim().replace(/\s+/g, '_');
-        const passInput = passEl.value.trim();
+        const userInput = document.getElementById('auth-user').value.trim().replace(/\s+/g, '_');
+        const passInput = document.getElementById('auth-pass').value.trim();
 
         if (!userInput || userInput.length > 10) {
             alert("Username must be between 1 and 10 characters!");
             return;
         }
-        if (passInput.length < 8) {
-            alert("Password must be at least 8 characters long!");
-            return;
-        }
 
-        try {
-            const userRef = db.ref(`users/${userInput}`);
-            const snapshot = await userRef.once('value');
+        const userRef = db.ref(`users/${userInput}`);
+        const snapshot = await userRef.once('value');
 
-            if (snapshot.exists()) {
-                // Existing User: Verify Password
-                const savedData = snapshot.val();
-                if (savedData && savedData.password === passInput) {
-                    currentLoggedUser = userInput;
-                    localStorage.setItem('claimed_username', userInput);
-                    alert(`Logged in as ${userInput}!`);
-                    checkUserSession();
-                } else {
-                    alert("Incorrect password for this username!");
-                }
-            } else {
-                // New User: Register Account
-                await userRef.set({ password: passInput });
+        if (snapshot.exists()) {
+            // --- EXISTING USER LOG IN ---
+            // Handles both old object structure ({password: "..."}) and new slim string ("...")
+            const savedData = snapshot.val();
+            const savedPassword = (typeof savedData === 'object' && savedData !== null) 
+                ? savedData.password 
+                : savedData;
+
+            if (savedPassword === passInput) {
                 currentLoggedUser = userInput;
                 localStorage.setItem('claimed_username', userInput);
-                alert(`Account created! Logged in as ${userInput}.`);
+                alert(`Welcome back, ${userInput}!`);
                 checkUserSession();
+            } else {
+                alert("Incorrect password for this username!");
             }
-        } catch (err) {
-            alert("Database Error: " + err.message);
-            console.error(err);
+        } else {
+            // --- NEW USER REGISTRATION ---
+            // Strictly enforces EXACTLY 8 characters to prevent storage bloat
+            if (passInput.length !== 8) {
+                alert("New passwords must be exactly 8 characters long!");
+                return;
+            }
+
+            // Save directly as a slim string to minimize storage
+            await userRef.set(passInput);
+            currentLoggedUser = userInput;
+            localStorage.setItem('claimed_username', userInput);
+            alert(`Account created! Logged in as ${userInput}.`);
+            checkUserSession();
         }
     }
 
