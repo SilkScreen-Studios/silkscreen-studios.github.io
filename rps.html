@@ -124,7 +124,7 @@
 
   <script>
     // --- CONFIGURATION ---
-    const FIREBASE_DB_URL = "https://silkscreen-studios-default-rtdb.firebaseio.com";
+    const FIREBASE_DB_URL = "https://silkscreenrockpaper-default-rtdb.europe-west1.firebasedatabase.app";
     const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v8_compact_secured";
 
     let deviceUser = null;
@@ -214,7 +214,7 @@
     // Schema: u=username, t=secretToken, w=wins, l=losses, d=draws, ts=timestamp
 
     async function loadStatsFromFirebase() {
-      if (!FIREBASE_DB_URL || FIREBASE_DB_URL.includes("https://silkscreenrockpaper-default-rtdb.europe-west1.firebasedatabase.app")) return;
+      if (!FIREBASE_DB_URL || FIREBASE_DB_URL.includes("YOUR_FIREBASE")) return;
       try {
         const res = await fetch(`${FIREBASE_DB_URL}/users/${deviceUUID}.json`);
         const data = await res.json();
