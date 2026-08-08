@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Online Rock Paper Scissors | Silkscreen Studios</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
@@ -12,7 +12,7 @@
     h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: #38bdf8; }
     p { color: #94a3b8; margin-bottom: 1.5rem; font-size: 0.95rem; }
     
-    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-bottom: 1.5rem; background: #334155; color: #cbd5e1; word-break: break-all; }
+    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-bottom: 1.5rem; background: #334155; color: #cbd5e1; }
     .status-badge.active { background: #0369a1; color: #e0f2fe; }
     
     .timer-bar { width: 100%; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 1.5rem; display: none; }
@@ -24,14 +24,9 @@
     .choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .choice-btn.selected { border-color: #22c55e; background: #14532d; }
 
-    .btn-group { display: flex; gap: 10px; margin-bottom: 1rem; }
-    .btn { background: #0284c7; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: background 0.2s; flex: 1; }
+    .btn { background: #0284c7; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; width: 100%; }
     .btn:hover:not(:disabled) { background: #0369a1; }
     .btn:disabled { background: #475569; cursor: not-allowed; }
-    .btn-sec { background: #334155; color: #e2e8f0; }
-    .btn-sec:hover:not(:disabled) { background: #475569; }
-
-    input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; text-align: center; font-size: 1rem; margin-bottom: 10px; }
 
     .result-display { font-size: 1.25rem; font-weight: bold; margin: 1rem 0; min-height: 30px; }
     .win { color: #4ade80; }
@@ -43,9 +38,9 @@
 
   <div class="card">
     <h1>Rock Paper Scissors</h1>
-    <p>Silkscreen Studios Multiplayer</p>
+    <p>Silkscreen Studios Live Multiplayer</p>
 
-    <div id="status" class="status-badge">Initializing Peer Connection...</div>
+    <div id="status" class="status-badge">Connecting to server...</div>
 
     <div class="timer-bar" id="timerBar">
       <div class="timer-progress" id="timerProgress"></div>
@@ -59,114 +54,122 @@
 
     <div id="result" class="result-display"></div>
 
-    <div id="setupControls">
-      <div class="btn-group">
-        <button id="hostBtn" class="btn" onclick="hostGame()">Host Game</button>
-      </div>
-      <p style="margin-bottom: 8px; font-size: 0.85rem;">OR Join via Room ID:</p>
-      <input type="text" id="joinInput" placeholder="Enter Host Room ID">
-      <button id="joinBtn" class="btn btn-sec" onclick="joinGame()">Join Room</button>
-    </div>
-
-    <button id="rematchBtn" class="btn" style="display:none;" onclick="requestRematch()">Play Again</button>
+    <button id="actionBtn" class="btn" onclick="startMatchmaking()" disabled>Find Opponent</button>
   </div>
 
   <script>
-    const PREFIX = "silkscreen-rps-";
-    let peer = null;
-    let conn = null;
+    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v2";
+    const myClientId = "player_" + Math.random().toString(36).substring(2, 10);
+    
+    let client = null;
+    let gameRoomTopic = null;
     let myChoice = null;
     let opponentChoice = null;
     let timerInterval = null;
+    let broadcastInterval = null;
     let timeLeft = 5;
+    let state = "IDLE"; // IDLE, WAITING, MATCHING, IN_GAME
 
     const statusEl = document.getElementById('status');
     const resultEl = document.getElementById('result');
+    const actionBtn = document.getElementById('actionBtn');
     const timerBar = document.getElementById('timerBar');
     const timerProgress = document.getElementById('timerProgress');
-    const setupControls = document.getElementById('setupControls');
-    const rematchBtn = document.getElementById('rematchBtn');
     const choiceBtns = ['rock', 'paper', 'scissors'].map(id => document.getElementById(`btn-${id}`));
 
-    // Initialize peer without explicit ID to let server assign an optimal connection
-    function initPeer(customId = null) {
-      if (peer) peer.destroy();
-      
-      peer = customId ? new Peer(customId) : new Peer();
+    function connectBroker() {
+      client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
-      peer.on('open', (id) => {
-        if (customId) {
-          statusEl.textContent = `Room Created! Room ID: ${id.replace(PREFIX, '')}`;
-          statusEl.classList.add('active');
-        } else {
-          statusEl.textContent = "Connected to network. Host or join below!";
+      client.on('connect', () => {
+        statusEl.textContent = "Online - Click to Play";
+        actionBtn.disabled = false;
+        client.subscribe(LOBBY_TOPIC);
+      });
+
+      client.on('message', (topic, payload) => {
+        const msg = JSON.parse(payload.toString());
+
+        // Global Lobby Traffic
+        if (topic === LOBBY_TOPIC) {
+          // Case 1: We are searching, and see a WAITING player
+          if (state === "MATCHING" && msg.type === "WAITING" && msg.sender !== myClientId) {
+            state = "PENDING_ACK";
+            client.publish(LOBBY_TOPIC, JSON.stringify({
+              type: "JOIN_REQUEST",
+              hostId: msg.sender,
+              guestId: myClientId
+            }));
+          }
+          
+          // Case 2: We were WAITING, and received a JOIN_REQUEST
+          else if (state === "WAITING" && msg.type === "JOIN_REQUEST" && msg.hostId === myClientId) {
+            // Lock room state to block 3rd-wheel players
+            state = "IN_GAME";
+            clearInterval(broadcastInterval);
+            gameRoomTopic = "silkscreen/rps/room/" + myClientId + "_" + msg.guestId;
+            client.subscribe(gameRoomTopic);
+
+            // Confirm match to the guest
+            client.publish(LOBBY_TOPIC, JSON.stringify({
+              type: "MATCH_ACK",
+              hostId: myClientId,
+              guestId: msg.guestId,
+              roomTopic: gameRoomTopic
+            }));
+
+            startMatch();
+          }
+
+          // Case 3: We sent a JOIN_REQUEST and host ACCEPTED us
+          else if (state === "PENDING_ACK" && msg.type === "MATCH_ACK" && msg.guestId === myClientId) {
+            state = "IN_GAME";
+            clearInterval(broadcastInterval);
+            gameRoomTopic = msg.roomTopic;
+            client.subscribe(gameRoomTopic);
+
+            startMatch();
+          }
+        } 
+        
+        // Private Game Room Traffic
+        else if (topic === gameRoomTopic && msg.sender !== myClientId) {
+          if (msg.type === "CHOICE") {
+            opponentChoice = msg.value;
+            checkGameEnd();
+          } else if (msg.type === "REMATCH") {
+            resetMatch();
+          }
         }
       });
-
-      peer.on('connection', (incomingConn) => {
-        conn = incomingConn;
-        setupConnection();
-      });
-
-      peer.on('error', (err) => {
-        console.error("Peer Error:", err);
-        statusEl.textContent = "Connection error. Try hosting or joining again.";
-      });
     }
 
-    function hostGame() {
-      // Create a short 4-character room ID
-      const roomId = PREFIX + Math.floor(1000 + Math.random() * 9000);
-      initPeer(roomId);
-    }
+    function startMatchmaking() {
+      actionBtn.disabled = true;
+      resultEl.textContent = "";
+      statusEl.textContent = "Searching for online opponent...";
+      statusEl.classList.add('active');
 
-    function joinGame() {
-      const code = document.getElementById('joinInput').value.trim();
-      if (!code) {
-        alert("Please enter a Room ID from the host device.");
-        return;
-      }
+      state = "MATCHING";
 
-      const targetId = PREFIX + code;
-      statusEl.textContent = `Connecting to Room ${code}...`;
-      
-      conn = peer.connect(targetId);
-      setupConnection();
-    }
-
-    function setupConnection() {
-      conn.on('open', () => {
-        statusEl.textContent = "Matched! Choose in 5 seconds!";
-        statusEl.classList.add('active');
-        setupControls.style.display = 'none';
-        startBattlePhase();
-      });
-
-      conn.on('data', (data) => {
-        if (data.type === 'choice') {
-          opponentChoice = data.value;
-          checkGameEnd();
-        } else if (data.type === 'rematch') {
-          resetForRematch();
+      // Periodically broadcast WAITING status if no immediate match is found
+      clearInterval(broadcastInterval);
+      broadcastInterval = setInterval(() => {
+        if (state === "MATCHING" || state === "WAITING") {
+          state = "WAITING";
+          client.publish(LOBBY_TOPIC, JSON.stringify({
+            type: "WAITING",
+            sender: myClientId
+          }));
         }
-      });
-
-      conn.on('close', () => {
-        statusEl.textContent = "Opponent disconnected.";
-        statusEl.classList.remove('active');
-        disableChoices();
-        setupControls.style.display = 'block';
-        rematchBtn.style.display = 'none';
-      });
+      }, 1500);
     }
 
-    function startBattlePhase() {
+    function startMatch() {
+      statusEl.textContent = "Matched! Choose in 5s!";
       enableChoices();
-      timeLeft = 5;
       myChoice = null;
       opponentChoice = null;
-      resultEl.textContent = "";
-      rematchBtn.style.display = "none";
+      timeLeft = 5;
       timerBar.style.display = 'block';
       timerProgress.style.width = '100%';
 
@@ -194,9 +197,11 @@
       document.getElementById(`btn-${choice}`).classList.add('selected');
       disableChoices();
 
-      if (conn && conn.open) {
-        conn.send({ type: 'choice', value: choice });
-      }
+      client.publish(gameRoomTopic, JSON.stringify({
+        type: "CHOICE",
+        sender: myClientId,
+        value: choice
+      }));
 
       checkGameEnd();
     }
@@ -217,9 +222,11 @@
           resultEl.innerHTML = `<span class="draw">Draw!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
         }
 
-        rematchBtn.style.display = 'inline-block';
+        actionBtn.textContent = "Play Again";
+        actionBtn.disabled = false;
+        actionBtn.onclick = requestRematch;
       } else if (myChoice) {
-        statusEl.textContent = "Choice locked! Waiting for opponent...";
+        statusEl.textContent = "Choice submitted! Waiting for opponent...";
       }
     }
 
@@ -236,15 +243,16 @@
     }
 
     function requestRematch() {
-      if (conn && conn.open) {
-        conn.send({ type: 'rematch' });
-        resetForRematch();
-      }
+      client.publish(gameRoomTopic, JSON.stringify({
+        type: "REMATCH",
+        sender: myClientId
+      }));
+      resetMatch();
     }
 
-    function resetForRematch() {
+    function resetMatch() {
       choiceBtns.forEach(btn => btn.classList.remove('selected'));
-      startBattlePhase();
+      startMatch();
     }
 
     function enableChoices() {
@@ -255,7 +263,7 @@
       choiceBtns.forEach(btn => btn.disabled = true);
     }
 
-    initPeer();
+    connectBroker();
   </script>
 </body>
 </html>
