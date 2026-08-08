@@ -6,15 +6,14 @@
   <title>Online Rock Paper Scissors | Silkscreen Studios</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
-    /* Color Palette derived from image_0.png */
     :root {
-      --bg-color: #212529; /* Main background */
-      --card-color: #2b3035; /* Card background */
-      --text-white: #ffffff; /* Headings */
-      --text-dim: #737c85; /* Notes/visits */
-      --purple-link: #8a2be2; /* Active purple */
-      --cyan-link: #00bfff; /* Active cyan */
-      --btn-bg: #444; /* Default button */
+      --bg-color: #212529;
+      --card-color: #2b3035;
+      --text-white: #ffffff;
+      --text-dim: #737c85;
+      --purple-link: #8a2be2;
+      --cyan-link: #00bfff;
+      --btn-bg: #444;
       --choice-border-selected: var(--cyan-link);
       --choice-bg-selected: #1a4a61;
       --win-color: #00ff88;
@@ -27,91 +26,129 @@
     
     .card { background: var(--card-color); padding: 2rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 480px; width: 100%; border: 1px solid #444; }
     
-    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: var(--text-white); }
-    p.dim-note { color: var(--text-dim); margin-bottom: 1.5rem; font-size: 0.85rem; }
-    p.game-p { color: var(--text-white); margin-bottom: 1.5rem; font-size: 0.95rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; color: var(--text-white); }
+    .subtitle { color: var(--text-dim); margin-bottom: 1.25rem; font-size: 0.9rem; }
     
-    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-bottom: 1.5rem; background: var(--btn-bg); color: var(--text-dim); transition: all 0.2s; }
+    .stats-bar { display: flex; justify-content: space-around; background: #1a1e21; border-radius: 8px; padding: 10px; margin-bottom: 1.25rem; font-size: 0.85rem; border: 1px solid #3d4246; }
+    .stats-item span { display: block; font-weight: bold; font-size: 1.1rem; margin-top: 2px; }
+    .stat-w { color: var(--win-color); }
+    .stat-l { color: var(--lose-color); }
+    .stat-d { color: var(--draw-color); }
+
+    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-bottom: 1.25rem; background: var(--btn-bg); color: var(--text-dim); }
     .status-badge.active { background: var(--purple-link); color: var(--text-white); }
     .status-badge.cyan { background: var(--cyan-link); color: #000; }
     
-    .timer-bar { width: 100%; height: 8px; background: #111; border-radius: 4px; overflow: hidden; margin-bottom: 1.5rem; display: none; }
+    .timer-bar { width: 100%; height: 8px; background: #111; border-radius: 4px; overflow: hidden; margin-bottom: 1.25rem; display: none; }
     .timer-progress { height: 100%; width: 100%; background: var(--cyan-link); transition: width 1s linear; }
 
-    .choices { display: flex; gap: 12px; justify-content: center; margin-bottom: 1.5rem; }
+    .choices { display: flex; gap: 12px; justify-content: center; margin-bottom: 1.25rem; }
     .choice-btn { background: var(--btn-bg); border: 2px solid transparent; font-size: 2.5rem; padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s; flex: 1; }
     .choice-btn:hover:not(:disabled) { transform: translateY(-4px); background: #555; border-color: var(--purple-link); }
     .choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .choice-btn.selected { border-color: var(--choice-border-selected); background: var(--choice-bg-selected); }
 
-    .btn-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 1rem; }
-    .btn { color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; width: 100%; text-decoration: none; display: flex; justify-content: center; align-items: center;}
+    .btn-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 0.5rem; }
+    .btn { color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: opacity 0.2s; width: 100%; }
     .btn:hover:not(:disabled) { opacity: 0.9; }
     .btn:disabled { background: #333; color: var(--text-dim); cursor: not-allowed; }
     
-    /* Specific btn colors based on context */
     .btn-find { background: var(--purple-link); }
     .btn-rematch { background: var(--cyan-link); color: #000; }
-    .btn-rematch:disabled { background: #1a4a61; color: var(--text-dim); }
 
-    .result-display { font-size: 1.25rem; font-weight: bold; margin: 1rem 0; min-height: 30px; color: var(--text-white); }
+    .result-display { font-size: 1.2rem; font-weight: bold; margin: 0.75rem 0; min-height: 28px; }
     .win { color: var(--win-color); }
     .lose { color: var(--lose-color); }
     .draw { color: var(--draw-color); }
 
-    /* For the Rematch Agree Text */
-    .rematch-agree-text { margin-top: 8px; font-size: 0.85rem; color: var(--text-dim); display: none; }
-    .rematch-agree-text.active { display: block; color: var(--cyan-link); }
-
+    /* Username Setup Overlay */
+    .user-setup { background: #1a1e21; border-radius: 12px; padding: 18px; margin-bottom: 1.25rem; border: 1px solid #3d4246; }
+    .user-setup input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #555; background: #0f1214; color: #fff; font-size: 1rem; text-align: center; margin-bottom: 10px; }
+    .rematch-agree-text { margin-top: 6px; font-size: 0.85rem; color: var(--cyan-link); display: none; }
+    .rematch-agree-text.active { display: block; }
   </style>
 </head>
 <body>
 
   <div class="card">
     <h1>Rock Paper Scissors</h1>
-    <p class="game-p">Silkscreen Studios Live Multiplayer</p>
-    <p class="dim-note">Matches based on availability. Stay on page.</p>
+    <p class="subtitle">Silkscreen Studios Live Multiplayer</p>
 
-    <div id="status" class="status-badge">Connecting...</div>
-
-    <div class="timer-bar" id="timerBar">
-      <div class="timer-progress" id="timerProgress"></div>
+    <!-- DEVICE USERNAME CREATION (First time only) -->
+    <div id="usernameSection" class="user-setup">
+      <p style="margin-bottom: 8px; font-size: 0.9rem;">Set Device Username (Max 10 Chars):</p>
+      <input type="text" id="usernameInput" maxlength="10" placeholder="Username">
+      <button class="btn btn-find" onclick="saveDeviceUser()">Lock & Save to Device</button>
     </div>
 
-    <div class="choices">
-      <button class="choice-btn" id="btn-rock" onclick="makeChoice('rock')" disabled>🪨</button>
-      <button class="choice-btn" id="btn-paper" onclick="makeChoice('paper')" disabled>📄</button>
-      <button class="choice-btn" id="btn-scissors" onclick="makeChoice('scissors')" disabled>✂️</button>
-    </div>
+    <!-- MAIN GAME AREA (Hidden until username set) -->
+    <div id="gameContainer" style="display:none;">
+      
+      <!-- STATS DISPLAY (Firebase Sync) -->
+      <div class="stats-bar">
+        <div class="stats-item">Player: <span id="displayUsername" style="color:var(--cyan-link)">-</span></div>
+        <div class="stats-item">Wins: <span id="statWins" class="stat-w">0</span></div>
+        <div class="stats-item">Losses: <span id="statLosses" class="stat-l">0</span></div>
+        <div class="stats-item">Draws: <span id="statDraws" class="stat-d">0</span></div>
+      </div>
 
-    <div id="result" class="result-display"></div>
+      <div id="status" class="status-badge">Connecting...</div>
 
-    <div class="btn-controls">
-      <button id="findBtn" class="btn btn-find" onclick="startNewMatchmaking()" disabled>Find Opponent</button>
-      <button id="rematchBtn" class="btn btn-rematch" style="display:none;" onclick="requestRematch()">Request Rematch (8s)</button>
-      <div id="rematchAgree" class="rematch-agree-text">Opponent wants a rematch! Agree?</div>
+      <div class="timer-bar" id="timerBar">
+        <div class="timer-progress" id="timerProgress"></div>
+      </div>
+
+      <div class="choices">
+        <button class="choice-btn" id="btn-rock" onclick="makeChoice('rock')" disabled>🪨</button>
+        <button class="choice-btn" id="btn-paper" onclick="makeChoice('paper')" disabled>📄</button>
+        <button class="choice-btn" id="btn-scissors" onclick="makeChoice('scissors')" disabled>✂️</button>
+      </div>
+
+      <div id="result" class="result-display"></div>
+
+      <div class="btn-controls">
+        <button id="findBtn" class="btn btn-find" onclick="startNewMatchmaking()" disabled>Find Opponent</button>
+        <button id="rematchBtn" class="btn btn-rematch" style="display:none;" onclick="requestRematch()">Request Rematch (8s)</button>
+        <div id="rematchAgree" class="rematch-agree-text">Opponent requested rematch. Click 'Request Rematch' to agree!</div>
+      </div>
+
     </div>
   </div>
 
   <script>
-    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v3_color_agreed";
-    const myClientId = "player_" + Math.random().toString(36).substring(2, 10);
-    
+    // --- CONFIGURATION ---
+    // REPLACE THIS WITH YOUR FIREBASE REALTIME DATABASE URL (e.g. "https://your-app-default-rtdb.firebaseio.com")
+    const FIREBASE_DB_URL = "https://silkscreen-studios-default-rtdb.firebaseio.com";
+    const LOBBY_TOPIC = "silkscreen/rps/matchmaking/v4_firebase_locked";
+
+    let deviceUser = null;
+    let deviceUUID = null;
+    let userStats = { wins: 0, losses: 0, draws: 0, total: 0 };
+
     let client = null;
     let gameRoomTopic = null;
     let myChoice = null;
     let opponentChoice = null;
+    let opponentUsername = "Opponent";
+    let opponentUUID = null;
+    let lastOpponentUUID = null;
+
     let timerInterval = null;
     let broadcastInterval = null;
     let rematchTimerInterval = null;
     let timeLeft = 5;
     let rematchTimeLeft = 8;
-    let lastOpponentId = null;
     
-    // IDLE, MATCHING, PENDING_ACK (Waiting for host), IN_GAME, REMATCH_DECISION (post-game)
     let state = "IDLE"; 
     let rematchMyAgree = false;
     let rematchOppAgree = false;
+
+    const usernameSection = document.getElementById('usernameSection');
+    const gameContainer = document.getElementById('gameContainer');
+    const displayUsername = document.getElementById('displayUsername');
+    const statWins = document.getElementById('statWins');
+    const statLosses = document.getElementById('statLosses');
+    const statDraws = document.getElementById('statDraws');
 
     const statusEl = document.getElementById('status');
     const resultEl = document.getElementById('result');
@@ -122,12 +159,83 @@
     const timerProgress = document.getElementById('timerProgress');
     const choiceBtns = ['rock', 'paper', 'scissors'].map(id => document.getElementById(`btn-${id}`));
 
-    function connectBroker() {
-      // Clear last search info on reload
-      sessionStorage.removeItem('rpsLastOpponent');
-      lastOpponentId = null;
+    // --- DEVICE IDENTITY & FIREBASE ---
 
-      // Free public broker
+    function initDeviceIdentity() {
+      // Create permanent UUID per device browser if not present
+      deviceUUID = localStorage.getItem('rps_device_uuid');
+      if (!deviceUUID) {
+        deviceUUID = "dev_" + Math.random().toString(36).substring(2, 12);
+        localStorage.setItem('rps_device_uuid', deviceUUID);
+      }
+
+      deviceUser = localStorage.getItem('rps_username');
+      if (deviceUser) {
+        showGameUI();
+      }
+    }
+
+    function saveDeviceUser() {
+      const input = document.getElementById('usernameInput').value.trim();
+      if (!input || input.length > 10) {
+        alert("Please enter a valid username (1 to 10 characters).");
+        return;
+      }
+      deviceUser = input;
+      localStorage.setItem('rps_username', deviceUser);
+      showGameUI();
+    }
+
+    async function showGameUI() {
+      usernameSection.style.display = 'none';
+      gameContainer.style.display = 'block';
+      displayUsername.textContent = deviceUser;
+
+      await loadStatsFromFirebase();
+      connectBroker();
+    }
+
+    async function loadStatsFromFirebase() {
+      if (!FIREBASE_DB_URL || FIREBASE_DB_URL.includes("YOUR_FIREBASE")) return;
+      try {
+        const res = await fetch(`${FIREBASE_DB_URL}/users/${deviceUUID}.json`);
+        const data = await res.json();
+        if (data && data.stats) {
+          userStats = data.stats;
+          updateStatsUI();
+        } else {
+          saveStatsToFirebase(); // Init record
+        }
+      } catch (e) {
+        console.error("Firebase read error:", e);
+      }
+    }
+
+    async function saveStatsToFirebase() {
+      if (!FIREBASE_DB_URL || FIREBASE_DB_URL.includes("YOUR_FIREBASE")) return;
+      try {
+        await fetch(`${FIREBASE_DB_URL}/users/${deviceUUID}.json`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            username: deviceUser,
+            stats: userStats,
+            lastUpdated: new Date().toISOString()
+          })
+        });
+      } catch (e) {
+        console.error("Firebase write error:", e);
+      }
+    }
+
+    function updateStatsUI() {
+      statWins.textContent = userStats.wins;
+      statLosses.textContent = userStats.losses;
+      statDraws.textContent = userStats.draws;
+    }
+
+    // --- MQTT & MULTIPLAYER MATCHMAKING ---
+
+    function connectBroker() {
       client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
       client.on('connect', () => {
@@ -139,45 +247,53 @@
       client.on('message', (topic, payload) => {
         const msg = JSON.parse(payload.toString());
 
-        // GLOBAL LOBBY
         if (topic === LOBBY_TOPIC) {
-          // I am a GUEST looking for a match, I find a WAITING host that is NOT my last opponent
-          if (state === "MATCHING" && msg.type === "WAITING" && msg.sender !== myClientId) {
-            if (msg.sender !== lastOpponentId) {
+          // SEARCHING GUEST -> FINDING HOST
+          if (state === "MATCHING" && msg.type === "WAITING" && msg.uuid !== deviceUUID) {
+            // Strictly prevent matching with the exact previous opponent device UUID
+            if (msg.uuid !== lastOpponentUUID) {
               state = "PENDING_ACK";
               client.publish(LOBBY_TOPIC, JSON.stringify({
                 type: "JOIN_REQUEST",
-                hostId: msg.sender,
-                guestId: myClientId
+                hostUUID: msg.uuid,
+                guestUUID: deviceUUID,
+                guestName: deviceUser
               }));
             }
           }
           
-          // I was WAITING, I get a JOIN_REQUEST from a valid guest
-          else if (state === "WAITING" && msg.type === "JOIN_REQUEST" && msg.hostId === myClientId) {
-            // Lock room state to block others
+          // WAITING HOST -> ACCEPTING GUEST
+          else if (state === "WAITING" && msg.type === "JOIN_REQUEST" && msg.hostUUID === deviceUUID) {
             state = "IN_GAME";
             clearInterval(broadcastInterval);
-            lastOpponentId = msg.guestId; // Remember them
-            gameRoomTopic = "silkscreen/rps/room/" + myClientId + "_" + msg.guestId;
+            
+            opponentUUID = msg.guestUUID;
+            opponentUsername = msg.guestName || "Opponent";
+            lastOpponentUUID = opponentUUID;
+
+            gameRoomTopic = `silkscreen/rps/room/${deviceUUID}_${opponentUUID}`;
             client.subscribe(gameRoomTopic);
 
-            // Ack to guest
             client.publish(LOBBY_TOPIC, JSON.stringify({
               type: "MATCH_ACK",
-              hostId: myClientId,
-              guestId: msg.guestId,
+              hostUUID: deviceUUID,
+              guestUUID: opponentUUID,
+              hostName: deviceUser,
               roomTopic: gameRoomTopic
             }));
 
             startMatch();
           }
 
-          // Case 3: We sent a JOIN_REQUEST and host ACCEPTED us
-          else if (state === "PENDING_ACK" && msg.type === "MATCH_ACK" && msg.guestId === myClientId) {
+          // GUEST -> RECEIVED ACK FROM HOST
+          else if (state === "PENDING_ACK" && msg.type === "MATCH_ACK" && msg.guestUUID === deviceUUID) {
             state = "IN_GAME";
             clearInterval(broadcastInterval);
-            lastOpponentId = msg.hostId; // Remember them
+
+            opponentUUID = msg.hostUUID;
+            opponentUsername = msg.hostName || "Opponent";
+            lastOpponentUUID = opponentUUID;
+
             gameRoomTopic = msg.roomTopic;
             client.subscribe(gameRoomTopic);
 
@@ -185,19 +301,16 @@
           }
         } 
         
-        // PRIVATE GAME ROOM
-        else if (topic === gameRoomTopic && msg.sender !== myClientId) {
+        // PRIVATE ROOM TRAFFIC
+        else if (topic === gameRoomTopic && msg.uuid !== deviceUUID) {
           if (msg.type === "CHOICE") {
             opponentChoice = msg.value;
             checkGameEnd();
           } else if (msg.type === "DRAW_AUTORESET") {
-            // Both clients got a DRAW and opponent is ready for rematch in 1s
-            statusEl.textContent = "Draw! Resetting match...";
-            resetMatchForNextRound(); 
+            setLobbyStatus("Draw! Resetting match...", "normal");
+            setTimeout(resetMatchForNextRound, 1000); 
           } else if (msg.type === "REMATCH_REQUEST") {
             opponentWantsRematch();
-          } else if (msg.type === "REMATCH_AGREE") {
-            opponentAgreed();
           } else if (msg.type === "DISCONNECT") {
             opponentDisconnectedInDecision();
           }
@@ -205,16 +318,12 @@
       });
     }
 
-    // --- Matchmaking ---
-
     function startNewMatchmaking() {
-      // This is the main button, which means "Forget the last person if necessary"
-      if (lastOpponentId && state === "REMATCH_DECISION") {
+      if (lastOpponentUUID && state === "REMATCH_DECISION") {
           client.publish(gameRoomTopic, JSON.stringify({
             type: "DISCONNECT",
-            sender: myClientId
+            uuid: deviceUUID
           }));
-          lastOpponentId = null; // User clicked "find new", so forget the last one.
       }
       _startSearchInternal();
     }
@@ -226,29 +335,28 @@
       resultEl.textContent = "";
       
       let statusText = "Searching for opponent...";
-      if (lastOpponentId) statusText = "Searching (avoiding last opponent)...";
+      if (lastOpponentUUID) statusText = "Searching (avoiding previous player)...";
       setLobbyStatus(statusText, "active");
 
       state = "MATCHING";
-      myClientId_original = myClientId; // used for debug if needed
 
-      // Periodically broadcast WAITING status if no immediate match is found
       clearInterval(broadcastInterval);
       broadcastInterval = setInterval(() => {
         if (state === "MATCHING" || state === "WAITING") {
           state = "WAITING";
           client.publish(LOBBY_TOPIC, JSON.stringify({
             type: "WAITING",
-            sender: myClientId
+            uuid: deviceUUID,
+            username: deviceUser
           }));
         }
       }, 1500);
     }
 
-    // --- Game Logic ---
+    // --- GAMEPLAY ROUNDS ---
 
     function startMatch() {
-      setLobbyStatus("Matched! Choose in 5s!", "cyan");
+      setLobbyStatus(`vs ${opponentUsername}! Choose in 5s!`, "cyan");
       enableChoices();
       findBtn.style.display = 'none';
       myChoice = null;
@@ -257,7 +365,6 @@
       timerBar.style.display = 'block';
       timerProgress.style.width = '100%';
 
-      // Choice selection time
       clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         timeLeft--;
@@ -268,7 +375,7 @@
           disableChoices();
           if (!myChoice) {
             const options = ['rock', 'paper', 'scissors'];
-            makeChoice(options[Math.floor(Math.random() * 3)]); // Auto-pick random
+            makeChoice(options[Math.floor(Math.random() * 3)]);
           }
         }
       }, 1000);
@@ -284,7 +391,7 @@
 
       client.publish(gameRoomTopic, JSON.stringify({
         type: "CHOICE",
-        sender: myClientId,
+        uuid: deviceUUID,
         value: choice
       }));
 
@@ -299,42 +406,48 @@
         const outcome = getWinner(myChoice, opponentChoice);
         const emojiMap = { rock: '🪨', paper: '📄', scissors: '✂️' };
 
+        userStats.total++;
+
         if (outcome === 'draw') {
+          userStats.draws++;
+          updateStatsUI();
+          saveStatsToFirebase();
+
           resultEl.innerHTML = `<span class="draw">Draw!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
-          // Draw logic: Keep current opponent and continue in same room automatically
           setLobbyStatus("Draw! Next round...", "active");
           
-          // Signal to opponent we are DRAW_AUTORESETing (both will publish)
           client.publish(gameRoomTopic, JSON.stringify({
             type: "DRAW_AUTORESET",
-            sender: myClientId
+            uuid: deviceUUID
           }));
 
-          // Local quick reset
           setTimeout(resetMatchForNextRound, 1000); 
 
         } else {
-          // Win/Lose logic
           if (outcome === 'win') {
+            userStats.wins++;
             resultEl.innerHTML = `<span class="win">You Win!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
           } else if (outcome === 'lose') {
+            userStats.losses++;
             resultEl.innerHTML = `<span class="lose">You Lose!</span> (${emojiMap[myChoice]} vs ${emojiMap[opponentChoice]})`;
           }
           
+          updateStatsUI();
+          saveStatsToFirebase();
           showRematchDecisionPhase();
         }
       } else if (myChoice) {
-        setLobbyStatus("Choice submitted! Waiting...", "cyan");
+        setLobbyStatus("Choice locked! Waiting for opponent...", "cyan");
       }
     }
 
-    // --- Post-Game Decision Phase (Win/Lose) ---
+    // --- REMATCH & SEPARATION DECISIONS ---
 
     function showRematchDecisionPhase() {
       state = "REMATCH_DECISION";
       setLobbyStatus("Game Over", "normal");
       
-      findBtn.textContent = "Find New Opponent"; // Changes from main initial button
+      findBtn.textContent = "Find New Opponent";
       findBtn.style.display = 'inline-block';
       findBtn.disabled = false;
       
@@ -344,7 +457,6 @@
       rematchMyAgree = false;
       rematchOppAgree = false;
 
-      // Start the 8s rematch countdown
       rematchTimeLeft = 8;
       clearInterval(rematchTimerInterval);
       rematchTimerInterval = setInterval(() => {
@@ -358,25 +470,14 @@
       }, 1000);
     }
 
-    function resetRematchUI() {
-        clearInterval(rematchTimerInterval);
-        rematchBtn.textContent = "Request Rematch (8s)";
-        rematchBtn.style.display = "none";
-        rematchAgreeText.classList.remove('active');
-        findBtn.textContent = "Find Opponent";
-    }
-
-    // --- Rematch Mutuality Handling ---
-
     function requestRematch() {
-      if (rematchMyAgree) return; // Prevent double clicks
+      if (rematchMyAgree) return;
       rematchMyAgree = true;
-      rematchBtn.disabled = true; // Disable local button
+      rematchBtn.disabled = true;
 
-      // Publish local agreement/request
       client.publish(gameRoomTopic, JSON.stringify({
         type: "REMATCH_REQUEST",
-        sender: myClientId
+        uuid: deviceUUID
       }));
       checkRematchConsensus();
     }
@@ -384,39 +485,46 @@
     function opponentWantsRematch() {
       if (state !== "REMATCH_DECISION") return;
       rematchOppAgree = true;
-      // UI update for "agree?"
       rematchAgreeText.classList.add('active');
-      rematchAgreeText.textContent = "Opponent requested rematch. Click 'Request Rematch' to agree!";
-      // We already have "Request Rematch" button available.
-      
+      rematchAgreeText.textContent = `${opponentUsername} wants a rematch! Click button to agree.`;
       checkRematchConsensus();
     }
 
     function checkRematchConsensus() {
-        if (rematchMyAgree && rematchOppAgree) {
-            // consenso!
-            clearInterval(rematchTimerInterval);
-            resetMatchForNextRound();
-        }
+      if (rematchMyAgree && rematchOppAgree) {
+        clearInterval(rematchTimerInterval);
+        resetMatchForNextRound();
+      }
     }
 
     function rematchTimerExpires() {
-        // If consensus isn't reached, handle it
-        if (!rematchMyAgree || !rematchOppAgree) {
-            setLobbyStatus("Rematch expired.", "normal");
-            disableChoices();
-            choiceBtns.forEach(btn => btn.classList.remove('selected'));
-            rematchBtn.disabled = true;
-            rematchBtn.textContent = "Rematch Expired";
-            rematchAgreeText.classList.remove('active');
-            
-            // Allow them to click "Find New" if they haven't already
-            findBtn.textContent = "Find New Opponent";
-            findBtn.disabled = false;
-        }
+      if (!rematchMyAgree || !rematchOppAgree) {
+        setLobbyStatus("Rematch expired.", "normal");
+        disableChoices();
+        choiceBtns.forEach(btn => btn.classList.remove('selected'));
+        rematchBtn.disabled = true;
+        rematchBtn.textContent = "Rematch Expired";
+        rematchAgreeText.classList.remove('active');
+        findBtn.textContent = "Find New Opponent";
+        findBtn.disabled = false;
+      }
     }
 
-    // --- Utility ---
+    function resetRematchUI() {
+      clearInterval(rematchTimerInterval);
+      rematchBtn.textContent = "Request Rematch (8s)";
+      rematchBtn.style.display = "none";
+      rematchAgreeText.classList.remove('active');
+      findBtn.textContent = "Find Opponent";
+    }
+
+    function resetMatchForNextRound() {
+      clearInterval(rematchTimerInterval);
+      resetRematchUI();
+      choiceBtns.forEach(btn => btn.classList.remove('selected'));
+      state = "IN_GAME";
+      startMatch();
+    }
 
     function getWinner(p1, p2) {
       if (p1 === p2) return 'draw';
@@ -430,42 +538,28 @@
       return 'lose';
     }
 
-    function resetMatchForNextRound() {
-      // Draw reset / rematch agreement
-      clearInterval(rematchTimerInterval);
-      resetRematchUI();
-      choiceBtns.forEach(btn => btn.classList.remove('selected'));
-      state = "IN_GAME";
-      startMatch();
-    }
-
-    function enableChoices() {
-      choiceBtns.forEach(btn => btn.disabled = false);
-    }
-
-    function disableChoices() {
-      choiceBtns.forEach(btn => btn.disabled = true);
-    }
+    function enableChoices() { choiceBtns.forEach(btn => btn.disabled = false); }
+    function disableChoices() { choiceBtns.forEach(btn => btn.disabled = true); }
 
     function setLobbyStatus(text, context) {
-        statusEl.textContent = text;
-        statusEl.classList.remove('active', 'cyan');
-        if (context === "active") statusEl.classList.add('active');
-        if (context === "cyan") statusEl.classList.add('cyan');
+      statusEl.textContent = text;
+      statusEl.classList.remove('active', 'cyan');
+      if (context === "active") statusEl.classList.add('active');
+      if (context === "cyan") statusEl.classList.add('cyan');
     }
 
     function opponentDisconnectedInDecision() {
-        if (state === "REMATCH_DECISION") {
-            setLobbyStatus("Opponent disconnected.", "normal");
-            clearInterval(rematchTimerInterval);
-            rematchBtn.style.display = 'none';
-            findBtn.textContent = "Find New Opponent";
-            lastOpponentId = null; // Can immediately forget them
-            findBtn.disabled = false;
-        }
+      if (state === "REMATCH_DECISION") {
+        setLobbyStatus(`${opponentUsername} left.`, "normal");
+        clearInterval(rematchTimerInterval);
+        rematchBtn.style.display = 'none';
+        findBtn.textContent = "Find New Opponent";
+        lastOpponentUUID = null;
+        findBtn.disabled = false;
+      }
     }
 
-    connectBroker();
+    initDeviceIdentity();
   </script>
 </body>
 </html>
