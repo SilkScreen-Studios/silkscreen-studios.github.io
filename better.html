@@ -186,48 +186,60 @@
     const pollDocRef = doc(db, "polls", "active_poll");
 
     // 2. Auth State & User Initialization
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        currentUser = user;
-        document.getElementById("user-id").innerText = user.uid;
+    // Auth State & User Initialization
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    document.getElementById("user-id").innerText = user.uid;
 
-        const userEmail = user.email ? user.email.toLowerCase() : "";
-        if (userEmail === ADMIN_EMAIL.toLowerCase() && userEmail !== "") {
-          document.getElementById("admin-dashboard").style.display = "block";
-          document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
-          document.getElementById("admin-auth-card").style.display = "none";
-        } else {
-          document.getElementById("admin-dashboard").style.display = "none";
-        }
+    const userEmail = user.email ? user.email.toLowerCase() : "";
+    if (userEmail === ADMIN_EMAIL.toLowerCase() && userEmail !== "") {
+      document.getElementById("admin-dashboard").style.display = "block";
+      document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
+      document.getElementById("admin-auth-card").style.display = "none";
+    } else {
+      document.getElementById("admin-dashboard").style.display = "none";
+    }
 
-        // Initialize user document if missing
-        const userDocRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userDocRef);
+    // Safely fetch or initialize the friend's account document
+    const userDocRef = doc(db, "users", user.uid);
+    
+    try {
+      const userSnap = await getDoc(userDocRef);
+      
+      if (!userSnap.exists()) {
+        const defaultName = "Pirate_" + user.uid.substring(0, 5);
+        // Create document for new visitor
+        await setDoc(userDocRef, { 
+          displayName: defaultName,
+          balance: 100 
+        }, { merge: true });
         
-        if (!userSnap.exists()) {
-          const defaultName = "Person_" + user.uid.substring(0, 5);
-          await setDoc(userDocRef, { 
-            displayName: defaultName,
-            balance: 100 
-          });
-          document.getElementById("display-name").value = defaultName;
-        } else {
-          const data = userSnap.data();
-          document.getElementById("display-name").value = data.displayName || "Pirate_" + user.uid.substring(0, 5);
-        }
-
-        // Listen for user balance & profile changes
-        onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            document.getElementById("balance").innerText = docSnap.data().balance;
-          }
-        });
-
-        document.getElementById("submit-bet").disabled = false;
+        document.getElementById("display-name").value = defaultName;
       } else {
-        signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+        const data = userSnap.data();
+        document.getElementById("display-name").value = data.displayName || ("Pirate_" + user.uid.substring(0, 5));
+      }
+    } catch (err) {
+      console.error("Error creating user profile:", err);
+    }
+
+    // Real-time listener for user's balance and profile updates
+    onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        document.getElementById("balance").innerText = docSnap.data().balance;
       }
     });
+
+    document.getElementById("submit-bet").disabled = false;
+  } else {
+    // Automatically log in visiting friends anonymously
+    signInAnonymously(auth).catch(err => {
+      console.error("Anonymous auth error:", err);
+      alert("Auth Error: Make sure Anonymous Auth is enabled in Firebase Console!");
+    });
+  }
+});
 
     // Save Display Name to Firestore with Duplicate Checking
     window.updateDisplayName = async function() {
