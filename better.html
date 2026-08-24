@@ -2,76 +2,76 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pirate Polls - Firebase Powered</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pirate Polls - Doubloon Betting</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
-    .card { border: 1px solid #ccc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
-    .option { margin: 0.5rem 0; }
-    .admin { background: #f4f4f4; border-color: #aaa; }
-    button { cursor: pointer; padding: 0.4rem 0.8rem; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 650px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.5; }
+    .card { border: 1px solid #e0e0e0; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .option { margin: 0.75rem 0; font-size: 1.05rem; }
+    .admin { background: #f8f9fa; border-color: #dcdcdc; }
+    button { cursor: pointer; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #ccc; background: #007bff; color: white; border: none; font-weight: bold; margin-top: 0.25rem; }
+    button:disabled { background: #6c757d; cursor: not-allowed; }
+    button.btn-secondary { background: #6c757d; }
+    input[type="text"], input[type="number"], select { padding: 0.5rem; width: 100%; box-sizing: border-box; margin-top: 0.25rem; margin-bottom: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
+    .new-option-input { margin-bottom: 0.5rem !important; }
+    hr { border: 0; border-top: 1px solid #ddd; margin: 1.5rem 0; }
   </style>
 </head>
 <body>
-  <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyBVhhdmv0oszNRVUCHlBZoLwkyWxhpW-3U",
-    authDomain: "silkscreen-betting.firebaseapp.com",
-    databaseURL: "https://silkscreen-betting-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "silkscreen-betting",
-    storageBucket: "silkscreen-betting.firebasestorage.app",
-    messagingSenderId: "193124110923",
-    appId: "1:193124110923:web:4892d8f23fa338d31033ce",
-    measurementId: "G-ZQ26EVG86R"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>
-
-  <h1>Pirate Polls</h1>
+  <h1>🏴‍☠️ Pirate Polls</h1>
   
+  <!-- User Status Card -->
   <div class="card">
-    <strong>User ID:</strong> <span id="user-id">Loading...</span><br>
+    <strong>User ID:</strong> <span id="user-id">Authenticating...</span><br>
     <strong>Your Balance:</strong> <span id="balance">0</span> Doubloons
   </div>
 
+  <!-- Active Poll Card -->
   <div class="card" id="poll-container">
-    <h2 id="poll-question">Loading poll...</h2>
+    <h2 id="poll-question" style="margin-top:0;">Loading poll...</h2>
     <div id="options-list"></div>
     <br>
-    <label for="bet-amount">Wager Amount:</label>
+    <label for="bet-amount"><strong>Wager Amount:</strong></label>
     <input type="number" id="bet-amount" value="10" min="1">
     <button id="submit-bet" onclick="placeBet()" disabled>Place Bet</button>
-    <p id="user-status"></p>
+    <p id="user-status" style="font-weight: bold; color: #28a745;"></p>
   </div>
 
   <!-- Admin Dashboard -->
   <div class="card admin">
-    <h3>Admin Dashboard</h3>
-    <button onclick="createNewPoll()">Initialize/Reset Poll</button><br><br>
+    <h3 style="margin-top:0;">👑 Admin Dashboard</h3>
+    
+    <h4>Create New Poll</h4>
+    <label for="new-question">Question:</label>
+    <input type="text" id="new-question" placeholder="e.g., Which ship is the fastest?">
+    
+    <label>Options (at least 2):</label>
+    <div id="new-options-container">
+      <input type="text" class="new-option-input" placeholder="Option 1">
+      <input type="text" class="new-option-input" placeholder="Option 2">
+    </div>
+    <button type="button" class="btn-secondary" onclick="addOptionInput()">+ Add Option</button>
+    <br><br>
+    <button onclick="createNewPoll()">Publish New Poll</button>
+    
+    <hr>
+    
+    <h4>Resolve Active Poll</h4>
     <label for="admin-winner">Select Winning Option:</label>
     <select id="admin-winner"></select>
-    <button onclick="resolvePoll()">Close Poll & Pay Out</button>
+    <button onclick="resolvePoll()" class="btn-secondary">Close Poll & Pay Out</button>
   </div>
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase JavaScript Modular SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
-      getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, runTransaction, arrayUnion 
+      getFirestore, doc, getDoc, setDoc, onSnapshot, runTransaction, arrayUnion 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 1. REPLACE THIS WITH YOUR FIREBASE CONFIG
+    // 1. REPLACE THIS WITH YOUR FIREBASE CONFIG KEYS
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -81,7 +81,7 @@
       appId: "YOUR_APP_ID"
     };
 
-    // Initialize Firebase
+    // Initialize Firebase Services
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -89,7 +89,7 @@
     let currentUser = null;
     const pollDocRef = doc(db, "polls", "active_poll");
 
-    // 2. Authenticate User Anonymously
+    // 2. User Authentication (Anonymous Sign-In)
     signInAnonymously(auth).catch(err => console.error("Auth error:", err));
 
     onAuthStateChanged(auth, async (user) => {
@@ -97,32 +97,31 @@
         currentUser = user;
         document.getElementById("user-id").innerText = user.uid;
 
-        // Ensure user has a profile document in Firestore
+        // Initialize user balance in Firestore if new user
         const userDocRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userDocRef);
         if (!userSnap.exists()) {
           await setDoc(userDocRef, { balance: 100 });
         }
 
-        // Listen for live balance updates
+        // Live balance update listener
         onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             document.getElementById("balance").innerText = docSnap.data().balance;
           }
         });
 
-        // Enable betting controls once authenticated
         document.getElementById("submit-bet").disabled = false;
       }
     });
 
-    // 3. Listen for Live Poll Updates
+    // 3. Live Poll Sync Listener
     onSnapshot(pollDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const poll = docSnap.data();
         renderPoll(poll);
       } else {
-        document.getElementById("poll-question").innerText = "No active poll found. Click 'Initialize Poll' in Admin.";
+        document.getElementById("poll-question").innerText = "No active poll found. Create one in the Admin panel.";
       }
     });
 
@@ -135,14 +134,14 @@
       adminSelect.innerHTML = "";
 
       poll.options.forEach((opt, index) => {
-        // Poll Options UI
+        // Option Radio Buttons for User
         const div = document.createElement("div");
         div.className = "option";
         div.innerHTML = `<input type="radio" name="poll-opt" value="${index}" id="opt-${index}" ${!poll.isOpen ? 'disabled' : ''}>
                          <label for="opt-${index}">${opt}</label>`;
         optionsList.appendChild(div);
 
-        // Admin Dropdown UI
+        // Options for Admin Selection
         const selectOpt = document.createElement("option");
         selectOpt.value = index;
         selectOpt.innerText = opt;
@@ -158,7 +157,7 @@
       }
     }
 
-    // 4. Place Bet (Atomic Firestore Transaction)
+    // 4. Place Bet Function
     window.placeBet = async function() {
       if (!currentUser) return alert("User not authenticated.");
       
@@ -177,7 +176,7 @@
           const pollSnap = await transaction.get(pollDocRef);
 
           if (!pollSnap.exists() || !pollSnap.data().isOpen) {
-            throw "Poll is not open for betting.";
+            throw "Poll is closed for betting.";
           }
 
           const currentBalance = userSnap.data().balance;
@@ -185,7 +184,7 @@
             throw "Insufficient Doubloons!";
           }
 
-          // Deduct balance and record bet in poll document
+          // Deduct user balance and add wager to poll record
           transaction.update(userDocRef, { balance: currentBalance - amount });
           transaction.update(pollDocRef, {
             bets: arrayUnion({
@@ -196,24 +195,58 @@
           });
         });
 
-        document.getElementById("user-status").innerText = `Successfully placed ${amount} doubloon bet!`;
+        document.getElementById("user-status").innerText = `Placed a ${amount} doubloon bet!`;
       } catch (err) {
-        alert("Betting failed: " + err);
+        alert("Bet failed: " + err);
       }
     };
 
-    // 5. Admin: Create/Reset Poll
-    window.createNewPoll = async function() {
-      await setDoc(pollDocRef, {
-        question: "Which ship is the fastest?",
-        options: ["The Black Pearl", "The Interceptor", "The Flying Dutchman"],
-        isOpen: true,
-        bets: []
-      });
-      alert("New poll created!");
+    // 5. Admin: Add Dynamic Option Fields
+    window.addOptionInput = function() {
+      const container = document.getElementById("new-options-container");
+      const inputCount = container.querySelectorAll(".new-option-input").length + 1;
+      
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "new-option-input";
+      input.placeholder = `Option ${inputCount}`;
+      
+      container.appendChild(input);
     };
 
-    // 6. Admin: Close Poll & Pay Out Winners
+    // 6. Admin: Publish Poll
+    window.createNewPoll = async function() {
+      const question = document.getElementById("new-question").value.trim();
+      const optionInputs = document.querySelectorAll(".new-option-input");
+      
+      const options = Array.from(optionInputs)
+        .map(input => input.value.trim())
+        .filter(val => val.length > 0);
+
+      if (!question) return alert("Please enter a question.");
+      if (options.length < 2) return alert("Please provide at least 2 options.");
+
+      try {
+        await setDoc(pollDocRef, {
+          question: question,
+          options: options,
+          isOpen: true,
+          bets: []
+        });
+
+        document.getElementById("new-question").value = "";
+        document.getElementById("new-options-container").innerHTML = `
+          <input type="text" class="new-option-input" placeholder="Option 1">
+          <input type="text" class="new-option-input" placeholder="Option 2">
+        `;
+
+        alert("New poll published successfully!");
+      } catch (err) {
+        alert("Failed to create poll: " + err);
+      }
+    };
+
+    // 7. Admin: Resolve Poll and Pay Out (2x Return)
     window.resolvePoll = async function() {
       const winningIndex = parseInt(document.getElementById("admin-winner").value);
 
@@ -225,10 +258,10 @@
           const poll = pollSnap.data();
           if (!poll.isOpen) throw "Poll is already closed.";
 
-          // Close the poll
+          // Close poll status
           transaction.update(pollDocRef, { isOpen: false });
 
-          // Distribute winnings (2x payout example)
+          // Pay out 2x to all winning bets
           for (const bet of poll.bets) {
             if (bet.optionIndex === winningIndex) {
               const winnerRef = doc(db, "users", bet.userId);
@@ -241,7 +274,7 @@
           }
         });
 
-        alert("Poll resolved and payouts distributed!");
+        alert("Poll closed and winning payouts distributed!");
       } catch (err) {
         alert("Resolution failed: " + err);
       }
