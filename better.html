@@ -438,14 +438,20 @@
         throw "Insufficient Doubloons!";
       }
 
+      const pollData = pollSnap.data();
+      const currentBets = pollData.bets || [];
+
+      // 1. Deduct wager immediately from user balance
       transaction.update(userDocRef, { balance: currentBalance - amount });
-      transaction.update(pollDocRef, {
-        bets: arrayUnion({
-          userId: currentUser.uid,
-          optionIndex: optionIndex,
-          amount: amount
-        })
+
+      // 2. Add bet record to poll
+      currentBets.push({
+        userId: currentUser.uid,
+        optionIndex: optionIndex,
+        amount: amount
       });
+
+      transaction.update(pollDocRef, { bets: currentBets });
     });
 
     statusEl.style.color = "#28a745";
