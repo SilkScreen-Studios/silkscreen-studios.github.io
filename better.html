@@ -307,13 +307,16 @@
 
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+        currentUser = userCredential.user; // Instantly update global user reference
+    
         alert("Logged in as Admin!");
-        if (userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-          isAdmin = true;
-          document.getElementById("admin-dashboard").style.display = "block";
-          document.getElementById("admin-auth-card").style.display = "none";
-          document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
-        }
+        isAdmin = true;
+        document.getElementById("admin-dashboard").style.display = "block";
+        document.getElementById("admin-auth-card").style.display = "none";
+        document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
+    
+        // Refresh page state to re-bind Firestore listeners with admin auth token
+        location.reload();
       } catch (err) {
         alert("Admin Login Failed: " + err.message);
       }
