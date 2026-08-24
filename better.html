@@ -3,15 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Bois - Doubloon Betting</title>
+  <title>Pirate Polls - Doubloon Betting</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; max-width: 650px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.5; }
     .card { border: 1px solid #e0e0e0; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .option { margin: 0.75rem 0; font-size: 1.05rem; }
+    .poll-card { border-left: 4px solid #007bff; margin-bottom: 1rem; background: #fafafa; }
+    .poll-card.closed { border-left-color: #6c757d; opacity: 0.8; }
+    .option { margin: 0.5rem 0; font-size: 1rem; }
     .admin { background: #f8f9fa; border-color: #dcdcdc; display: none; }
     button { cursor: pointer; padding: 0.5rem 1rem; border-radius: 4px; background: #007bff; color: white; border: none; font-weight: bold; margin-top: 0.25rem; }
     button:disabled { background: #6c757d; cursor: not-allowed; }
     button.btn-secondary { background: #6c757d; }
+    button.btn-danger { background: #dc3545; }
     input[type="text"], input[type="password"], input[type="number"], select { padding: 0.5rem; width: 100%; box-sizing: border-box; margin-top: 0.25rem; margin-bottom: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
     .new-option-input { margin-bottom: 0.5rem !important; }
     hr { border: 0; border-top: 1px solid #ddd; margin: 1.5rem 0; }
@@ -27,6 +30,10 @@
     /* Passcode Overlay */
     #gate-screen { max-width: 400px; margin: 5rem auto; text-align: center; }
     #main-app { display: none; }
+    
+    .bet-container { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
+    .bet-container input { width: 100px; margin: 0; }
+    .bet-container button { margin: 0; }
   </style>
 </head>
 <body>
@@ -34,7 +41,7 @@
   <!-- Access Passcode Screen -->
   <div id="gate-screen" class="card">
     <h2>🔒 Protected Site</h2>
-    <p>Enter the secret passcode to access The Bois Betting Station:</p>
+    <p>Enter the secret passcode to access Pirate Polls:</p>
     <input type="password" id="passcode-input" placeholder="Enter Passcode" style="text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
     <button onclick="checkPasscode()" style="width: 100%;">Enter Site</button>
     <p id="gate-error" style="color: #dc3545; font-weight: bold; margin-top: 0.5rem;"></p>
@@ -42,7 +49,7 @@
 
   <!-- Main Website Content -->
   <div id="main-app">
-    <h1>The Bois Betting Station</h1>
+    <h1>🏴‍☠️ Pirate Polls</h1>
     
     <!-- User Profile & Status Card -->
     <div class="card">
@@ -53,9 +60,9 @@
       <strong>Your Balance:</strong> <span id="balance">0</span> Doubloons
       
       <div style="margin-top: 1rem;">
-        <label for="display-name"><strong>Your Name:</strong></label>
+        <label for="display-name"><strong>Your Pirate Name:</strong></label>
         <div style="display: flex; gap: 0.5rem;">
-          <input type="text" id="display-name" placeholder="Enter your name" style="margin-bottom: 0;">
+          <input type="text" id="display-name" placeholder="Enter your pirate name" style="margin-bottom: 0;">
           <button onclick="updateDisplayName()" style="margin-top: 0; white-space: nowrap;">Save Name</button>
         </div>
         <small id="name-status" style="font-weight: bold;"></small>
@@ -70,20 +77,15 @@
       <button onclick="adminLogin()">Login as Admin</button>
     </div>
 
-    <!-- Active Poll Card -->
-    <div class="card" id="poll-container">
-      <h2 id="poll-question" style="margin-top:0;">Loading poll...</h2>
-      <div id="options-list"></div>
-      <br>
-      <label for="bet-amount"><strong>Wager Amount:</strong></label>
-      <input type="number" id="bet-amount" value="10" min="1">
-      <button id="submit-bet" onclick="placeBet()" disabled>Place Bet</button>
-      <p id="user-status" style="font-weight: bold; color: #28a745;"></p>
+    <!-- Active Polls Section (up to 4) -->
+    <div class="card">
+      <h2 style="margin-top:0;">🎲 Active Polls (<span id="active-poll-count">0</span>/4)</h2>
+      <div id="polls-list">Loading active polls...</div>
     </div>
 
     <!-- Doubloon Leaderboard Card -->
     <div class="card">
-      <h3 style="margin-top:0;">🏆 Top People Leaderboard</h3>
+      <h3 style="margin-top:0;">🏆 Top Pirate Leaderboard</h3>
       <ul id="leaderboard" class="leaderboard-list">
         <li style="color: #666;">Loading rankings...</li>
       </ul>
@@ -94,30 +96,28 @@
       <h3 style="margin-top:0;">👑 Admin Dashboard</h3>
       
       <h4>Create New Poll</h4>
-      <label for="new-question">Question:</label>
-      <input type="text" id="new-question" placeholder="e.g., Which ship is the fastest?">
-      
-      <label>Options (at least 2):</label>
-      <div id="new-options-container">
-        <input type="text" class="new-option-input" placeholder="Option 1">
-        <input type="text" class="new-option-input" placeholder="Option 2">
+      <p id="poll-limit-warning" style="color: #dc3545; display: none; font-weight: bold;">
+        Maximum limit of 4 active polls reached. Close an active poll to publish a new one.
+      </p>
+      <div id="create-poll-form">
+        <label for="new-question">Question:</label>
+        <input type="text" id="new-question" placeholder="e.g., Which ship is the fastest?">
+        
+        <label>Options (at least 2):</label>
+        <div id="new-options-container">
+          <input type="text" class="new-option-input" placeholder="Option 1">
+          <input type="text" class="new-option-input" placeholder="Option 2">
+        </div>
+        <button type="button" class="btn-secondary" onclick="addOptionInput()">+ Add Option</button>
+        <br><br>
+        <button id="create-poll-btn" onclick="createNewPoll()">Publish New Poll</button>
       </div>
-      <button type="button" class="btn-secondary" onclick="addOptionInput()">+ Add Option</button>
-      <br><br>
-      <button onclick="createNewPoll()">Publish New Poll</button>
       
-      <hr>
-      
-      <h4>Resolve Active Poll</h4>
-      <label for="admin-winner">Select Winning Option:</label>
-      <select id="admin-winner"></select>
-      <button onclick="resolvePoll()" class="btn-secondary">Close Poll & Pay Out</button>
-
       <hr>
 
       <h4>Account Management</h4>
       <button type="button" class="btn-secondary" onclick="deleteUnchangedAccounts()">Delete All Unused 'Pirate_' Accounts</button>
-      <p><small>Deletes accounts that still have default names and haven't bet or placed custom names.</small></p>
+      <p><small>Deletes accounts that still have default names and haven't placed custom names.</small></p>
     </div>
   </div>
 
@@ -142,12 +142,10 @@
       document.getElementById("main-app").style.display = "block";
     }
 
-    // Auto-unlock if successfully entered previously
     if (localStorage.getItem("site_unlocked") === "true") {
       showApp();
     }
 
-    // Allow pressing Enter key to submit passcode
     document.getElementById("passcode-input")?.addEventListener("keyup", function(e) {
       if (e.key === "Enter") checkPasscode();
     });
@@ -160,88 +158,72 @@
       getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
-      getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, runTransaction, arrayUnion, collection, query, orderBy, limit, where, getDocs, writeBatch 
+      getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, runTransaction, arrayUnion, collection, query, orderBy, limit, where, getDocs, writeBatch, addDoc, serverTimestamp 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 1. REPLACE WITH YOUR FIREBASE CONFIG KEYS
+    // REPLACE WITH YOUR FIREBASE CONFIG KEYS
     const firebaseConfig = {
-      apiKey: "AIzaSyBVhhdmv0oszNRVUCHlBZoLwkyWxhpW-3U",
-      authDomain: "silkscreen-betting.firebaseapp.com",
-      databaseURL: "https://silkscreen-betting-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "silkscreen-betting",
-      storageBucket: "silkscreen-betting.firebasestorage.app",
-      messagingSenderId: "193124110923",
-      appId: "1:193124110923:web:4892d8f23fa338d31033ce",
-      measurementId: "G-ZQ26EVG86R"
-};
-    // Replace with your exact Firebase Admin email
-    const ADMIN_EMAIL = "billy.egmc@gmail.com"; 
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
-    // Initialize Firebase
+    const ADMIN_EMAIL = "admin@yourwebsite.com"; 
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
     let currentUser = null;
-    const pollDocRef = doc(db, "polls", "active_poll");
+    let isAdmin = false;
+    let currentActivePollCount = 0;
 
-    // 2. Auth State & User Initialization
-    // Auth State & User Initialization
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    currentUser = user;
-    document.getElementById("user-id").innerText = user.uid;
+    // Auth State
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("user-id").innerText = user.uid;
 
-    const userEmail = user.email ? user.email.toLowerCase() : "";
-    if (userEmail === ADMIN_EMAIL.toLowerCase() && userEmail !== "") {
-      document.getElementById("admin-dashboard").style.display = "block";
-      document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
-      document.getElementById("admin-auth-card").style.display = "none";
-    } else {
-      document.getElementById("admin-dashboard").style.display = "none";
-    }
+        const userEmail = user.email ? user.email.toLowerCase() : "";
+        if (userEmail === ADMIN_EMAIL.toLowerCase() && userEmail !== "") {
+          isAdmin = true;
+          document.getElementById("admin-dashboard").style.display = "block";
+          document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
+          document.getElementById("admin-auth-card").style.display = "none";
+        } else {
+          isAdmin = false;
+          document.getElementById("admin-dashboard").style.display = "none";
+        }
 
-    // Safely fetch or initialize the friend's account document
-    const userDocRef = doc(db, "users", user.uid);
-    
-    try {
-      const userSnap = await getDoc(userDocRef);
-      
-      if (!userSnap.exists()) {
-        const defaultName = "Pirate_" + user.uid.substring(0, 5);
-        // Create document for new visitor
-        await setDoc(userDocRef, { 
-          displayName: defaultName,
-          balance: 100 
-        }, { merge: true });
+        const userDocRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userDocRef);
         
-        document.getElementById("display-name").value = defaultName;
+        if (!userSnap.exists()) {
+          const defaultName = "Pirate_" + user.uid.substring(0, 5);
+          await setDoc(userDocRef, { 
+            displayName: defaultName,
+            balance: 100 
+          });
+          document.getElementById("display-name").value = defaultName;
+        } else {
+          const data = userSnap.data();
+          document.getElementById("display-name").value = data.displayName || "Pirate_" + user.uid.substring(0, 5);
+        }
+
+        onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            document.getElementById("balance").innerText = docSnap.data().balance;
+          }
+        });
       } else {
-        const data = userSnap.data();
-        document.getElementById("display-name").value = data.displayName || ("Pirate_" + user.uid.substring(0, 5));
-      }
-    } catch (err) {
-      console.error("Error creating user profile:", err);
-    }
-
-    // Real-time listener for user's balance and profile updates
-    onSnapshot(userDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        document.getElementById("balance").innerText = docSnap.data().balance;
+        signInAnonymously(auth).catch(err => console.error("Auth error:", err));
       }
     });
 
-    document.getElementById("submit-bet").disabled = false;
-  } else {
-    // Automatically log in visiting friends anonymously
-    signInAnonymously(auth).catch(err => {
-      console.error("Anonymous auth error:", err);
-      alert("Auth Error: Make sure Anonymous Auth is enabled in Firebase Console!");
-    });
-  }
-});
-
-    // Save Display Name to Firestore with Duplicate Checking
+    // Save Display Name
     window.updateDisplayName = async function() {
       if (!currentUser) return;
       const nameInput = document.getElementById("display-name").value.trim();
@@ -261,9 +243,7 @@ onAuthStateChanged(auth, async (user) => {
 
         let nameTaken = false;
         querySnapshot.forEach((docSnap) => {
-          if (docSnap.id !== currentUser.uid) {
-            nameTaken = true;
-          }
+          if (docSnap.id !== currentUser.uid) nameTaken = true;
         });
 
         if (nameTaken) {
@@ -284,7 +264,7 @@ onAuthStateChanged(auth, async (user) => {
       }
     };
 
-    // 3. Live Leaderboard Listener (Top 10 Players)
+    // Live Leaderboard
     const leaderboardQuery = query(collection(db, "users"), orderBy("balance", "desc"), limit(10));
     onSnapshot(leaderboardQuery, (snapshot) => {
       const listEl = document.getElementById("leaderboard");
@@ -313,7 +293,7 @@ onAuthStateChanged(auth, async (user) => {
       });
     });
 
-    // Admin Auth Actions
+    // Admin Auth
     window.toggleAdminAuthForm = function() {
       const card = document.getElementById("admin-auth-card");
       card.style.display = card.style.display === "none" ? "block" : "none";
@@ -327,6 +307,7 @@ onAuthStateChanged(auth, async (user) => {
         const userCredential = await signInWithEmailAndPassword(auth, email, pass);
         alert("Logged in as Admin!");
         if (userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+          isAdmin = true;
           document.getElementById("admin-dashboard").style.display = "block";
           document.getElementById("admin-auth-card").style.display = "none";
           document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
@@ -336,58 +317,99 @@ onAuthStateChanged(auth, async (user) => {
       }
     };
 
-    // 4. Live Poll Listener
-    onSnapshot(pollDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const poll = docSnap.data();
-        renderPoll(poll);
+    // 4. Live Multi-Poll Listener (Supports up to 4 concurrent polls)
+    const pollsQuery = query(collection(db, "polls"), where("isOpen", "==", true), orderBy("createdAt", "desc"), limit(4));
+    
+    onSnapshot(pollsQuery, (snapshot) => {
+      const pollsListContainer = document.getElementById("polls-list");
+      pollsListContainer.innerHTML = "";
+      
+      currentActivePollCount = snapshot.size;
+      document.getElementById("active-poll-count").innerText = currentActivePollCount;
+
+      const createBtn = document.getElementById("create-poll-btn");
+      const warning = document.getElementById("poll-limit-warning");
+
+      if (currentActivePollCount >= 4) {
+        createBtn.disabled = true;
+        warning.style.display = "block";
       } else {
-        document.getElementById("poll-question").innerText = "No active poll found.";
+        createBtn.disabled = false;
+        warning.style.display = "none";
       }
+
+      if (snapshot.empty) {
+        pollsListContainer.innerHTML = "<p>No active polls at the moment.</p>";
+        return;
+      }
+
+      snapshot.forEach((docSnap) => {
+        const poll = docSnap.data();
+        const pollId = docSnap.id;
+        pollsListContainer.appendChild(renderPollCard(pollId, poll));
+      });
     });
 
-    function renderPoll(poll) {
-      document.getElementById("poll-question").innerText = poll.question;
-      const optionsList = document.getElementById("options-list");
-      const adminSelect = document.getElementById("admin-winner");
+    function renderPollCard(pollId, poll) {
+      const card = document.createElement("div");
+      card.className = "card poll-card";
       
-      optionsList.innerHTML = "";
-      adminSelect.innerHTML = "";
-
+      let optionsHtml = "";
       poll.options.forEach((opt, index) => {
-        const div = document.createElement("div");
-        div.className = "option";
-        div.innerHTML = `<input type="radio" name="poll-opt" value="${index}" id="opt-${index}" ${!poll.isOpen ? 'disabled' : ''}>
-                         <label for="opt-${index}">${opt}</label>`;
-        optionsList.appendChild(div);
-
-        const selectOpt = document.createElement("option");
-        selectOpt.value = index;
-        selectOpt.innerText = opt;
-        adminSelect.appendChild(selectOpt);
+        optionsHtml += `
+          <div class="option">
+            <input type="radio" name="poll-opt-${pollId}" value="${index}" id="opt-${pollId}-${index}">
+            <label for="opt-${pollId}-${index}">${opt}</label>
+          </div>`;
       });
 
-      if (!poll.isOpen) {
-        document.getElementById("submit-bet").disabled = true;
-        document.getElementById("user-status").innerText = "This poll is closed!";
-      } else {
-        document.getElementById("submit-bet").disabled = false;
-        document.getElementById("user-status").innerText = "";
+      let adminControlsHtml = "";
+      if (isAdmin) {
+        let adminOptionsHtml = "";
+        poll.options.forEach((opt, index) => {
+          adminOptionsHtml += `<option value="${index}">${opt}</option>`;
+        });
+
+        adminControlsHtml = `
+          <hr>
+          <div style="background: #e9ecef; padding: 0.5rem; border-radius: 4px;">
+            <small><strong>Admin Action:</strong> Resolve Poll</small>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+              <select id="resolve-opt-${pollId}" style="margin: 0;">${adminOptionsHtml}</select>
+              <button class="btn-secondary" onclick="resolvePoll('${pollId}')" style="margin: 0; white-space: nowrap;">Pay Out & Close</button>
+            </div>
+          </div>`;
       }
+
+      card.innerHTML = `
+        <h3 style="margin-top:0;">${poll.question}</h3>
+        <div>${optionsHtml}</div>
+        <div class="bet-container">
+          <input type="number" id="bet-amount-${pollId}" value="10" min="1" placeholder="Wager">
+          <button onclick="placeBet('${pollId}')">Place Bet</button>
+        </div>
+        <p id="status-${pollId}" style="font-weight: bold; margin-bottom:0;"></p>
+        ${adminControlsHtml}
+      `;
+
+      return card;
     }
 
-    // 5. Betting Logic
-    window.placeBet = async function() {
+    // Place Bet for specific poll ID
+    window.placeBet = async function(pollId) {
       if (!currentUser) return alert("User not authenticated.");
       
-      const amount = parseInt(document.getElementById("bet-amount").value);
-      const selectedOpt = document.querySelector('input[name="poll-opt"]:checked');
+      const amountInput = document.getElementById(`bet-amount-${pollId}`);
+      const amount = parseInt(amountInput.value);
+      const selectedOpt = document.querySelector(`input[name="poll-opt-${pollId}"]:checked`);
+      const statusEl = document.getElementById(`status-${pollId}`);
 
-      if (!selectedOpt) return alert("Select an option.");
+      if (!selectedOpt) return alert("Select an option first.");
       if (isNaN(amount) || amount <= 0) return alert("Enter a valid bet amount.");
 
       const optionIndex = parseInt(selectedOpt.value);
       const userDocRef = doc(db, "users", currentUser.uid);
+      const pollDocRef = doc(db, "polls", pollId);
 
       try {
         await runTransaction(db, async (transaction) => {
@@ -413,13 +435,15 @@ onAuthStateChanged(auth, async (user) => {
           });
         });
 
-        document.getElementById("user-status").innerText = `Placed a ${amount} doubloon bet!`;
+        statusEl.style.color = "#28a745";
+        statusEl.innerText = `Placed a ${amount} doubloon bet!`;
       } catch (err) {
-        alert("Bet failed: " + err);
+        statusEl.style.color = "#dc3545";
+        statusEl.innerText = "Bet failed: " + err;
       }
     };
 
-    // 6. Admin Panel Functions
+    // Admin Create Poll
     window.addOptionInput = function() {
       const container = document.getElementById("new-options-container");
       const inputCount = container.querySelectorAll(".new-option-input").length + 1;
@@ -433,6 +457,10 @@ onAuthStateChanged(auth, async (user) => {
     };
 
     window.createNewPoll = async function() {
+      if (currentActivePollCount >= 4) {
+        return alert("Maximum limit of 4 active polls reached. Close an existing poll first.");
+      }
+
       const question = document.getElementById("new-question").value.trim();
       const optionInputs = document.querySelectorAll(".new-option-input");
       
@@ -444,11 +472,12 @@ onAuthStateChanged(auth, async (user) => {
       if (options.length < 2) return alert("Please provide at least 2 options.");
 
       try {
-        await setDoc(pollDocRef, {
+        await addDoc(collection(db, "polls"), {
           question: question,
           options: options,
           isOpen: true,
-          bets: []
+          bets: [],
+          createdAt: serverTimestamp()
         });
 
         document.getElementById("new-question").value = "";
@@ -463,54 +492,56 @@ onAuthStateChanged(auth, async (user) => {
       }
     };
 
-    window.resolvePoll = async function() {
-  const adminWinnerSelect = document.getElementById("admin-winner");
-  if (!adminWinnerSelect || adminWinnerSelect.value === "") return alert("Please select a winning option.");
-  
-  const winningIndex = parseInt(adminWinnerSelect.value);
+    // Fixed Admin Resolve Poll Function (Reads before Writes)
+    window.resolvePoll = async function(pollId) {
+      const adminWinnerSelect = document.getElementById(`resolve-opt-${pollId}`);
+      if (!adminWinnerSelect || adminWinnerSelect.value === "") return alert("Please select a winning option.");
+      
+      const winningIndex = parseInt(adminWinnerSelect.value);
+      const pollDocRef = doc(db, "polls", pollId);
 
-  try {
-    await runTransaction(db, async (transaction) => {
-      // 1. READ PHASE: Fetch active poll
-      const pollSnap = await transaction.get(pollDocRef);
-      if (!pollSnap.exists()) throw "No active poll.";
+      try {
+        await runTransaction(db, async (transaction) => {
+          // READ PHASE 1: Fetch target poll document
+          const pollSnap = await transaction.get(pollDocRef);
+          if (!pollSnap.exists()) throw "Poll document not found.";
 
-      const poll = pollSnap.data();
-      if (!poll.isOpen) throw "Poll is already closed.";
+          const poll = pollSnap.data();
+          if (!poll.isOpen) throw "Poll is already closed.";
 
-      // Filter winning bets
-      const winningBets = (poll.bets || []).filter(bet => bet.optionIndex === winningIndex);
+          const winningBets = (poll.bets || []).filter(bet => bet.optionIndex === winningIndex);
 
-      // 2. READ PHASE: Fetch all winning user documents FIRST
-      const winnerDocSnaps = [];
-      for (const bet of winningBets) {
-        const winnerRef = doc(db, "users", bet.userId);
-        const winnerSnap = await transaction.get(winnerRef);
-        if (winnerSnap.exists()) {
-          winnerDocSnaps.push({
-            ref: winnerRef,
-            currentBalance: winnerSnap.data().balance || 0,
-            payout: bet.amount * 2
-          });
-        }
-      }
+          // READ PHASE 2: Fetch all winning user documents
+          const winnerDocSnaps = [];
+          for (const bet of winningBets) {
+            const winnerRef = doc(db, "users", bet.userId);
+            const winnerSnap = await transaction.get(winnerRef);
+            if (winnerSnap.exists()) {
+              winnerDocSnaps.push({
+                ref: winnerRef,
+                currentBalance: winnerSnap.data().balance || 0,
+                payout: bet.amount * 2
+              });
+            }
+          }
 
-      // 3. WRITE PHASE: Perform all writes AFTER reads are completed
-      transaction.update(pollDocRef, { isOpen: false });
+          // WRITE PHASE: Apply all document updates after reads complete
+          transaction.update(pollDocRef, { isOpen: false });
 
-      for (const winner of winnerDocSnaps) {
-        transaction.update(winner.ref, { 
-          balance: winner.currentBalance + winner.payout 
+          for (const winner of winnerDocSnaps) {
+            transaction.update(winner.ref, { 
+              balance: winner.currentBalance + winner.payout 
+            });
+          }
         });
-      }
-    });
 
-    alert("Poll closed and payouts distributed!");
-  } catch (err) {
-    alert("Resolution failed: " + err);
-  }
-};
-    // Admin Cleanup Function
+        alert("Poll closed and payouts distributed!");
+      } catch (err) {
+        alert("Resolution failed: " + err);
+      }
+    };
+
+    // Admin Account Cleanup
     window.deleteUnchangedAccounts = async function() {
       if (!confirm("Are you sure you want to delete all accounts that haven't customized their names?")) return;
 
