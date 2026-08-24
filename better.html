@@ -521,8 +521,9 @@ window.resolvePoll = async function(pollId) {
   const pollDocRef = doc(db, "polls", pollId);
 
   try {
+    let debugSummary = "";
+
     await runTransaction(db, async (transaction) => {
-      // 1. READ PHASE: Fetch poll document
       const pollSnap = await transaction.get(pollDocRef);
       if (!pollSnap.exists()) throw "Poll document not found.";
 
@@ -538,20 +539,23 @@ window.resolvePoll = async function(pollId) {
       const userPayouts = {};
 
       if (winningPoolTotal === 0) {
-        // Refund everyone if nobody selected the winning choice
+        // Refund everyone if no bets were placed on the winning option
+        debugSummary = "No winning bets placed on this option! Refunding all bets.\n";
         for (const bet of bets) {
           userPayouts[bet.userId] = (userPayouts[bet.userId] || 0) + Number(bet.amount);
         }
       } else {
-        // Calculate proportional pot share using rounded values
+        // Calculate proportional share of total pot for each winning bet
+        debugSummary = `Total Pot: ${totalPot} | Winning Pool: ${winningPoolTotal}\n\n`;
         for (const bet of winningBets) {
           const share = Number(bet.amount) / winningPoolTotal;
           const payout = Math.round(share * totalPot);
           userPayouts[bet.userId] = (userPayouts[bet.userId] || 0) + payout;
+          debugSummary += `User (${bet.userId.substring(0,5)}...) bet ${bet.amount} -> Receives ${payout} total from pot.\n`;
         }
       }
 
-      // 2. READ PHASE: Fetch user balances for winning accounts
+      // Fetch current balances for accounts receiving funds
       const userDocSnaps = [];
       for (const userId of Object.keys(userPayouts)) {
         const userRef = doc(db, "users", userId);
@@ -565,7 +569,7 @@ window.resolvePoll = async function(pollId) {
         }
       }
 
-      // 3. WRITE PHASE: Apply updates after all reads finish
+      // Close poll & credit payouts
       transaction.update(pollDocRef, { isOpen: false });
 
       for (const winner of userDocSnaps) {
@@ -575,12 +579,11 @@ window.resolvePoll = async function(pollId) {
       }
     });
 
-    alert("Poll closed and pot split among winners!");
+    alert("Poll Resolved!\n\n" + debugSummary);
   } catch (err) {
     alert("Resolution failed: " + err);
   }
 };
-
     // Admin Account Cleanup
     window.deleteUnchangedAccounts = async function() {
       if (!confirm("Are you sure you want to delete all accounts that haven't customized their names?")) return;
