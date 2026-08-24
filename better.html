@@ -503,53 +503,75 @@
     };
 
     // Fixed Admin Resolve Poll Function (Reads before Writes)
-    window.resolvePoll = async function(pollId) {
-      const adminWinnerSelect = document.getElementById(`resolve-opt-${pollId}`);
-      if (!adminWinnerSelect || adminWinnerSelect.value === "") return alert("Please select a winning option.");
+    // Admin Resolve Poll Function: Distributes the total pot proportionally
+window.resolvePoll = async function(pollId) {
+  const adminWinnerSelect = document.getElementById(`resolve-opt-${pollId}`);
+  if (!adminWinnerSelect || adminWinnerSelect.value === "") return alert("Please select a winning option.");
+  
+  const winningIndex = parseInt(adminWinnerSelect.value);
+  const pollDocRef = doc(db, "polls", pollId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      // 1. READ PHASE: Fetch poll document
+      const pollSnap = await transaction.get(pollDocRef);
+      if (!pollSnap.exists()) throw "Poll document not found.";
+
+      const poll = pollSnap.data();
+      if (!poll.isOpen) throw "Poll is already closed.";
+
+      const bets = poll.bets || [];
+      const totalPot = bets.reduce((sum, b) => sum + b.amount, 0);
       
-      const winningIndex = parseInt(adminWinnerSelect.value);
-      const pollDocRef = doc(db, "polls", pollId);
+      const winningBets = bets.filter(b => b.optionIndex === winningIndex);
+      const winningPoolTotal = winningBets.reduce((sum, b) => sum + b.amount, 0);
 
-      try {
-        await runTransaction(db, async (transaction) => {
-          // READ PHASE 1: Fetch target poll document
-          const pollSnap = await transaction.get(pollDocRef);
-          if (!pollSnap.exists()) throw "Poll document not found.";
+      // Map to keep track of combined winnings per user ID
+      const userPayouts = {};
 
-          const poll = pollSnap.data();
-          if (!poll.isOpen) throw "Poll is already closed.";
-
-          const winningBets = (poll.bets || []).filter(bet => bet.optionIndex === winningIndex);
-
-          // READ PHASE 2: Fetch all winning user documents
-          const winnerDocSnaps = [];
-          for (const bet of winningBets) {
-            const winnerRef = doc(db, "users", bet.userId);
-            const winnerSnap = await transaction.get(winnerRef);
-            if (winnerSnap.exists()) {
-              winnerDocSnaps.push({
-                ref: winnerRef,
-                currentBalance: winnerSnap.data().balance || 0,
-                payout: bet.amount * 2
-              });
-            }
-          }
-
-          // WRITE PHASE: Apply all document updates after reads complete
-          transaction.update(pollDocRef, { isOpen: false });
-
-          for (const winner of winnerDocSnaps) {
-            transaction.update(winner.ref, { 
-              balance: winner.currentBalance + winner.payout 
-            });
-          }
-        });
-
-        alert("Poll closed and payouts distributed!");
-      } catch (err) {
-        alert("Resolution failed: " + err);
+      if (winningPoolTotal === 0) {
+        // Edge case: Nobody guessed the winning option. Return wagers to everyone.
+        for (const bet of bets) {
+          userPayouts[bet.userId] = (userPayouts[bet.userId] || 0) + bet.amount;
+        }
+      } else {
+        // Calculate proportional pot split for winners
+        for (const bet of winningBets) {
+          const share = bet.amount / winningPoolTotal;
+          const payout = Math.floor(share * totalPot);
+          userPayouts[bet.userId] = (userPayouts[bet.userId] || 0) + payout;
+        }
       }
-    };
+
+      // 2. READ PHASE: Fetch user documents for all accounts receiving payouts
+      const userDocSnaps = [];
+      for (const userId of Object.keys(userPayouts)) {
+        const userRef = doc(db, "users", userId);
+        const userSnap = await transaction.get(userRef);
+        if (userSnap.exists()) {
+          userDocSnaps.push({
+            ref: userRef,
+            currentBalance: userSnap.data().balance || 0,
+            payout: userPayouts[userId]
+          });
+        }
+      }
+
+      // 3. WRITE PHASE: Apply updates after all reads completed
+      transaction.update(pollDocRef, { isOpen: false });
+
+      for (const winner of userDocSnaps) {
+        transaction.update(winner.ref, { 
+          balance: winner.currentBalance + winner.payout 
+        });
+      }
+    });
+
+    alert("Poll closed and pot split among winners!");
+  } catch (err) {
+    alert("Resolution failed: " + err);
+  }
+};
 
     // Admin Account Cleanup
     window.deleteUnchangedAccounts = async function() {
