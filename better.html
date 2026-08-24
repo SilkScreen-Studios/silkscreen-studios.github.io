@@ -464,36 +464,52 @@ onAuthStateChanged(auth, async (user) => {
     };
 
     window.resolvePoll = async function() {
-      const winningIndex = parseInt(document.getElementById("admin-winner").value);
+  const adminWinnerSelect = document.getElementById("admin-winner");
+  if (!adminWinnerSelect || adminWinnerSelect.value === "") return alert("Please select a winning option.");
+  
+  const winningIndex = parseInt(adminWinnerSelect.value);
 
-      try {
-        await runTransaction(db, async (transaction) => {
-          const pollSnap = await transaction.get(pollDocRef);
-          if (!pollSnap.exists()) throw "No active poll.";
+  try {
+    await runTransaction(db, async (transaction) => {
+      // 1. READ PHASE: Fetch active poll
+      const pollSnap = await transaction.get(pollDocRef);
+      if (!pollSnap.exists()) throw "No active poll.";
 
-          const poll = pollSnap.data();
-          if (!poll.isOpen) throw "Poll is already closed.";
+      const poll = pollSnap.data();
+      if (!poll.isOpen) throw "Poll is already closed.";
 
-          transaction.update(pollDocRef, { isOpen: false });
+      // Filter winning bets
+      const winningBets = (poll.bets || []).filter(bet => bet.optionIndex === winningIndex);
 
-          for (const bet of poll.bets) {
-            if (bet.optionIndex === winningIndex) {
-              const winnerRef = doc(db, "users", bet.userId);
-              const winnerSnap = await transaction.get(winnerRef);
-              if (winnerSnap.exists()) {
-                const newBalance = winnerSnap.data().balance + (bet.amount * 2);
-                transaction.update(winnerRef, { balance: newBalance });
-              }
-            }
-          }
-        });
-
-        alert("Poll closed and payouts distributed!");
-      } catch (err) {
-        alert("Resolution failed: " + err);
+      // 2. READ PHASE: Fetch all winning user documents FIRST
+      const winnerDocSnaps = [];
+      for (const bet of winningBets) {
+        const winnerRef = doc(db, "users", bet.userId);
+        const winnerSnap = await transaction.get(winnerRef);
+        if (winnerSnap.exists()) {
+          winnerDocSnaps.push({
+            ref: winnerRef,
+            currentBalance: winnerSnap.data().balance || 0,
+            payout: bet.amount * 2
+          });
+        }
       }
-    };
 
+      // 3. WRITE PHASE: Perform all writes AFTER reads are completed
+      transaction.update(pollDocRef, { isOpen: false });
+
+      for (const winner of winnerDocSnaps) {
+        transaction.update(winner.ref, { 
+          balance: winner.currentBalance + winner.payout 
+        });
+      }
+    });
+
+    alert("Poll closed and payouts distributed!");
+  } catch (err) {
+    alert("Resolution failed: " + err);
+  }
+};
     // Admin Cleanup Function
     window.deleteUnchangedAccounts = async function() {
       if (!confirm("Are you sure you want to delete all accounts that haven't customized their names?")) return;
