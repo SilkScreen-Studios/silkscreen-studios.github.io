@@ -8,29 +8,46 @@
     body { font-family: system-ui, -apple-system, sans-serif; max-width: 650px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.5; }
     .card { border: 1px solid #e0e0e0; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .option { margin: 0.75rem 0; font-size: 1.05rem; }
-    .admin { background: #f8f9fa; border-color: #dcdcdc; display: none; /* Hidden by default */ }
+    .admin { background: #f8f9fa; border-color: #dcdcdc; display: none; }
     button { cursor: pointer; padding: 0.5rem 1rem; border-radius: 4px; background: #007bff; color: white; border: none; font-weight: bold; margin-top: 0.25rem; }
     button:disabled { background: #6c757d; cursor: not-allowed; }
     button.btn-secondary { background: #6c757d; }
     input[type="text"], input[type="password"], input[type="number"], select { padding: 0.5rem; width: 100%; box-sizing: border-box; margin-top: 0.25rem; margin-bottom: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
     .new-option-input { margin-bottom: 0.5rem !important; }
     hr { border: 0; border-top: 1px solid #ddd; margin: 1.5rem 0; }
+    
+    /* Leaderboard Styling */
+    .leaderboard-list { list-style: none; padding: 0; margin: 0; }
+    .leaderboard-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    .leaderboard-item:last-child { border-bottom: none; }
+    .leaderboard-rank { font-weight: bold; width: 30px; }
+    .leaderboard-name { flex-grow: 1; font-weight: 500; }
+    .leaderboard-balance { font-weight: bold; color: #d97706; }
   </style>
 </head>
 <body>
 
   <h1>The Bois Betting Station</h1>
   
-  <!-- User Status Card -->
+  <!-- User Profile & Status Card -->
   <div class="card">
-    <strong>User ID:</strong> <span id="user-id">Authenticating...</span><br>
-    <strong>Your Balance:</strong> <span id="balance">0</span> Doubloons
     <div style="float: right;">
       <button id="admin-login-btn" onclick="toggleAdminAuthForm()" class="btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Admin Login</button>
     </div>
+    <strong>User ID:</strong> <span id="user-id">Authenticating...</span><br>
+    <strong>Your Balance:</strong> <span id="balance">0</span> Doubloons
+    
+    <div style="margin-top: 1rem;">
+      <label for="display-name"><strong>Your Name:</strong></label>
+      <div style="display: flex; gap: 0.5rem;">
+        <input type="text" id="display-name" placeholder="Enter your real name" style="margin-bottom: 0;">
+        <button onclick="updateDisplayName()" style="margin-top: 0; white-space: nowrap;">Save Name</button>
+      </div>
+      <small id="name-status" style="color: #28a745; font-weight: bold;"></small>
+    </div>
   </div>
 
-  <!-- Admin Login Form (Hidden by default) -->
+  <!-- Admin Login Form -->
   <div class="card" id="admin-auth-card" style="display: none; background: #fff3cd; border-color: #ffeeba;">
     <h4 style="margin-top:0;">Admin Sign In</h4>
     <input type="text" id="admin-email" placeholder="Admin Email">
@@ -49,7 +66,15 @@
     <p id="user-status" style="font-weight: bold; color: #28a745;"></p>
   </div>
 
-  <!-- Admin Dashboard (Only displays when logged in as admin) -->
+  <!-- Doubloon Leaderboard Card -->
+  <div class="card">
+    <h3 style="margin-top:0;">🏆 Top Bois Leaderboard</h3>
+    <ul id="leaderboard" class="leaderboard-list">
+      <li style="color: #666;">Loading rankings...</li>
+    </ul>
+  </div>
+
+  <!-- Admin Dashboard -->
   <div class="card admin" id="admin-dashboard">
     <h3 style="margin-top:0;">👑 Admin Dashboard</h3>
     
@@ -74,17 +99,17 @@
     <button onclick="resolvePoll()" class="btn-secondary">Close Poll & Pay Out</button>
   </div>
 
-  <!-- Firebase JavaScript Modular SDKs -->
+  <!-- Firebase Modular SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
-      getFirestore, doc, getDoc, setDoc, onSnapshot, runTransaction, arrayUnion 
+      getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, runTransaction, arrayUnion, collection, query, orderBy, limit 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 1. REPLACE THIS WITH YOUR FIREBASE CONFIG KEYS
+    // 1. REPLACE WITH YOUR FIREBASE CONFIG KEYS
    const firebaseConfig = {
       apiKey: "AIzaSyBVhhdmv0oszNRVUCHlBZoLwkyWxhpW-3U",
       authDomain: "silkscreen-betting.firebaseapp.com",
@@ -96,10 +121,10 @@
       measurementId: "G-ZQ26EVG86R"
 };
 
-    // Replace with your Admin email from Firebase
+    // Replace with your exact Firebase Admin email
     const ADMIN_EMAIL = "billy.egmc@gmail.com"; 
 
-    // Initialize Firebase Services
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -107,14 +132,14 @@
     let currentUser = null;
     const pollDocRef = doc(db, "polls", "active_poll");
 
-    // 2. Manage Auth State
+    // 2. Auth State & User Initialization
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUser = user;
         document.getElementById("user-id").innerText = user.uid;
 
-        // Reveal Admin UI if authenticated as the Admin Email
-        if (user.email === ADMIN_EMAIL) {
+        const userEmail = user.email ? user.email.toLowerCase() : "";
+        if (userEmail === ADMIN_EMAIL.toLowerCase() && userEmail !== "") {
           document.getElementById("admin-dashboard").style.display = "block";
           document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
           document.getElementById("admin-auth-card").style.display = "none";
@@ -122,14 +147,23 @@
           document.getElementById("admin-dashboard").style.display = "none";
         }
 
-        // Initialize user balance for anonymous users or new users
+        // Initialize user document if missing
         const userDocRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userDocRef);
+        
         if (!userSnap.exists()) {
-          await setDoc(userDocRef, { balance: 100 });
+          const defaultName = "Pirate_" + user.uid.substring(0, 5);
+          await setDoc(userDocRef, { 
+            displayName: defaultName,
+            balance: 100 
+          });
+          document.getElementById("display-name").value = defaultName;
+        } else {
+          const data = userSnap.data();
+          document.getElementById("display-name").value = data.displayName || "Pirate_" + user.uid.substring(0, 5);
         }
 
-        // Live balance listener
+        // Listen for user balance & profile changes
         onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             document.getElementById("balance").innerText = docSnap.data().balance;
@@ -138,9 +172,54 @@
 
         document.getElementById("submit-bet").disabled = false;
       } else {
-        // Automatically sign in visitors anonymously
         signInAnonymously(auth).catch(err => console.error("Auth error:", err));
       }
+    });
+
+    // Save Display Name to Firestore
+    window.updateDisplayName = async function() {
+      if (!currentUser) return;
+      const nameInput = document.getElementById("display-name").value.trim();
+      if (!nameInput) return alert("Please enter a valid name.");
+
+      const userDocRef = doc(db, "users", currentUser.uid);
+      try {
+        await updateDoc(userDocRef, { displayName: nameInput });
+        const status = document.getElementById("name-status");
+        status.innerText = "Saved!";
+        setTimeout(() => { status.innerText = ""; }, 2000);
+      } catch (err) {
+        alert("Failed to save name: " + err.message);
+      }
+    };
+
+    // 3. Live Leaderboard Listener (Top 10 Pirates)
+    const leaderboardQuery = query(collection(db, "users"), orderBy("balance", "desc"), limit(10));
+    onSnapshot(leaderboardQuery, (snapshot) => {
+      const listEl = document.getElementById("leaderboard");
+      listEl.innerHTML = "";
+
+      if (snapshot.empty) {
+        listEl.innerHTML = "<li>No players yet!</li>";
+        return;
+      }
+
+      let rank = 1;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const name = data.displayName || ("Pirate_" + docSnap.id.substring(0, 5));
+        const balance = data.balance !== undefined ? data.balance : 0;
+
+        const li = document.createElement("li");
+        li.className = "leaderboard-item";
+        li.innerHTML = `
+          <span class="leaderboard-rank">#${rank}</span>
+          <span class="leaderboard-name">${name}</span>
+          <span class="leaderboard-balance">${balance} 🪙</span>
+        `;
+        listEl.appendChild(li);
+        rank++;
+      });
     });
 
     // Admin Auth Actions
@@ -150,18 +229,23 @@
     };
 
     window.adminLogin = async function() {
-      const email = document.getElementById("admin-email").value;
+      const email = document.getElementById("admin-email").value.trim();
       const pass = document.getElementById("admin-pass").value;
 
       try {
-        await signInWithEmailAndPassword(auth, email, pass);
+        const userCredential = await signInWithEmailAndPassword(auth, email, pass);
         alert("Logged in as Admin!");
+        if (userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+          document.getElementById("admin-dashboard").style.display = "block";
+          document.getElementById("admin-auth-card").style.display = "none";
+          document.getElementById("admin-login-btn").innerText = "Logged in as Admin";
+        }
       } catch (err) {
         alert("Admin Login Failed: " + err.message);
       }
     };
 
-    // 3. Live Poll Listener
+    // 4. Live Poll Listener
     onSnapshot(pollDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const poll = docSnap.data();
@@ -201,7 +285,7 @@
       }
     }
 
-    // 4. Betting logic
+    // 5. Betting Logic
     window.placeBet = async function() {
       if (!currentUser) return alert("User not authenticated.");
       
@@ -244,7 +328,7 @@
       }
     };
 
-    // 5. Admin Controls
+    // 6. Admin Panel Functions
     window.addOptionInput = function() {
       const container = document.getElementById("new-options-container");
       const inputCount = container.querySelectorAll(".new-option-input").length + 1;
