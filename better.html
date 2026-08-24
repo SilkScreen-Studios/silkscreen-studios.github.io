@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pirate Polls - Doubloon Betting</title>
+  <title>The Bois - Doubloon Betting</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; max-width: 650px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.5; }
     .card { border: 1px solid #e0e0e0; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
@@ -34,7 +34,7 @@
   <!-- Access Passcode Screen -->
   <div id="gate-screen" class="card">
     <h2>🔒 Protected Site</h2>
-    <p>Enter the secret passcode to access Pirate Polls:</p>
+    <p>Enter the secret passcode to access The Bois Betting Station:</p>
     <input type="password" id="passcode-input" placeholder="Enter Passcode" style="text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
     <button onclick="checkPasscode()" style="width: 100%;">Enter Site</button>
     <p id="gate-error" style="color: #dc3545; font-weight: bold; margin-top: 0.5rem;"></p>
@@ -42,7 +42,7 @@
 
   <!-- Main Website Content -->
   <div id="main-app">
-    <h1>🏴‍☠️ Pirate Polls</h1>
+    <h1>The Bois Betting Station</h1>
     
     <!-- User Profile & Status Card -->
     <div class="card">
@@ -53,9 +53,9 @@
       <strong>Your Balance:</strong> <span id="balance">0</span> Doubloons
       
       <div style="margin-top: 1rem;">
-        <label for="display-name"><strong>Your Pirate Name:</strong></label>
+        <label for="display-name"><strong>Your Name:</strong></label>
         <div style="display: flex; gap: 0.5rem;">
-          <input type="text" id="display-name" placeholder="Enter your pirate name" style="margin-bottom: 0;">
+          <input type="text" id="display-name" placeholder="Enter your name" style="margin-bottom: 0;">
           <button onclick="updateDisplayName()" style="margin-top: 0; white-space: nowrap;">Save Name</button>
         </div>
         <small id="name-status" style="font-weight: bold;"></small>
@@ -83,7 +83,7 @@
 
     <!-- Doubloon Leaderboard Card -->
     <div class="card">
-      <h3 style="margin-top:0;">🏆 Top Pirate Leaderboard</h3>
+      <h3 style="margin-top:0;">🏆 Top People Leaderboard</h3>
       <ul id="leaderboard" class="leaderboard-list">
         <li style="color: #666;">Loading rankings...</li>
       </ul>
@@ -205,7 +205,7 @@
         const userSnap = await getDoc(userDocRef);
         
         if (!userSnap.exists()) {
-          const defaultName = "Pirate_" + user.uid.substring(0, 5);
+          const defaultName = "Person_" + user.uid.substring(0, 5);
           await setDoc(userDocRef, { 
             displayName: defaultName,
             balance: 100 
@@ -272,7 +272,7 @@
       }
     };
 
-    // 3. Live Leaderboard Listener (Top 10 Pirates)
+    // 3. Live Leaderboard Listener (Top 10 Players)
     const leaderboardQuery = query(collection(db, "users"), orderBy("balance", "desc"), limit(10));
     onSnapshot(leaderboardQuery, (snapshot) => {
       const listEl = document.getElementById("leaderboard");
