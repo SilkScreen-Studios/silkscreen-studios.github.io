@@ -410,51 +410,51 @@
 
     // Place Bet for specific poll ID
     window.placeBet = async function(pollId) {
-      if (!currentUser) return alert("User not authenticated.");
-      
-      const amountInput = document.getElementById(`bet-amount-${pollId}`);
-      const amount = parseInt(amountInput.value);
-      const selectedOpt = document.querySelector(`input[name="poll-opt-${pollId}"]:checked`);
-      const statusEl = document.getElementById(`status-${pollId}`);
+  if (!currentUser) return alert("User not authenticated.");
+  
+  const amountInput = document.getElementById(`bet-amount-${pollId}`);
+  const amount = Number(amountInput.value);
+  const selectedOpt = document.querySelector(`input[name="poll-opt-${pollId}"]:checked`);
+  const statusEl = document.getElementById(`status-${pollId}`);
 
-      if (!selectedOpt) return alert("Select an option first.");
-      if (isNaN(amount) || amount <= 0) return alert("Enter a valid bet amount.");
+  if (!selectedOpt) return alert("Select an option first.");
+  if (isNaN(amount) || amount <= 0) return alert("Enter a valid bet amount.");
 
-      const optionIndex = parseInt(selectedOpt.value);
-      const userDocRef = doc(db, "users", currentUser.uid);
-      const pollDocRef = doc(db, "polls", pollId);
+  const optionIndex = parseInt(selectedOpt.value);
+  const userDocRef = doc(db, "users", currentUser.uid);
+  const pollDocRef = doc(db, "polls", pollId);
 
-      try {
-        await runTransaction(db, async (transaction) => {
-          const userSnap = await transaction.get(userDocRef);
-          const pollSnap = await transaction.get(pollDocRef);
+  try {
+    await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userDocRef);
+      const pollSnap = await transaction.get(pollDocRef);
 
-          if (!pollSnap.exists() || !pollSnap.data().isOpen) {
-            throw "Poll is closed for betting.";
-          }
-
-          const currentBalance = userSnap.data().balance;
-          if (currentBalance < amount) {
-            throw "Insufficient Doubloons!";
-          }
-
-          transaction.update(userDocRef, { balance: currentBalance - amount });
-          transaction.update(pollDocRef, {
-            bets: arrayUnion({
-              userId: currentUser.uid,
-              optionIndex: optionIndex,
-              amount: amount
-            })
-          });
-        });
-
-        statusEl.style.color = "#28a745";
-        statusEl.innerText = `Placed a ${amount} doubloon bet!`;
-      } catch (err) {
-        statusEl.style.color = "#dc3545";
-        statusEl.innerText = "Bet failed: " + err;
+      if (!pollSnap.exists() || !pollSnap.data().isOpen) {
+        throw "Poll is closed for betting.";
       }
-    };
+
+      const currentBalance = Number(userSnap.data().balance) || 0;
+      if (currentBalance < amount) {
+        throw "Insufficient Doubloons!";
+      }
+
+      transaction.update(userDocRef, { balance: currentBalance - amount });
+      transaction.update(pollDocRef, {
+        bets: arrayUnion({
+          userId: currentUser.uid,
+          optionIndex: optionIndex,
+          amount: amount
+        })
+      });
+    });
+
+    statusEl.style.color = "#28a745";
+    statusEl.innerText = `Placed a ${amount} doubloon bet!`;
+  } catch (err) {
+    statusEl.style.color = "#dc3545";
+    statusEl.innerText = "Bet failed: " + err;
+  }
+};
 
     // Admin Create Poll
     window.addOptionInput = function() {
@@ -524,29 +524,28 @@ window.resolvePoll = async function(pollId) {
       if (!poll.isOpen) throw "Poll is already closed.";
 
       const bets = poll.bets || [];
-      const totalPot = bets.reduce((sum, b) => sum + b.amount, 0);
+      const totalPot = bets.reduce((sum, b) => sum + Number(b.amount), 0);
       
       const winningBets = bets.filter(b => b.optionIndex === winningIndex);
-      const winningPoolTotal = winningBets.reduce((sum, b) => sum + b.amount, 0);
+      const winningPoolTotal = winningBets.reduce((sum, b) => sum + Number(b.amount), 0);
 
-      // Map to keep track of combined winnings per user ID
       const userPayouts = {};
 
       if (winningPoolTotal === 0) {
-        // Edge case: Nobody guessed the winning option. Return wagers to everyone.
+        // Refund everyone if nobody selected the winning choice
         for (const bet of bets) {
-          userPayouts[bet.userId] = (userPayouts[bet.userId] || 0) + bet.amount;
+          userPayouts[bet.userId] = (userPayouts[bet.userId] || 0) + Number(bet.amount);
         }
       } else {
-        // Calculate proportional pot split for winners
+        // Calculate proportional pot share using rounded values
         for (const bet of winningBets) {
-          const share = bet.amount / winningPoolTotal;
-          const payout = Math.floor(share * totalPot);
+          const share = Number(bet.amount) / winningPoolTotal;
+          const payout = Math.round(share * totalPot);
           userPayouts[bet.userId] = (userPayouts[bet.userId] || 0) + payout;
         }
       }
 
-      // 2. READ PHASE: Fetch user documents for all accounts receiving payouts
+      // 2. READ PHASE: Fetch user balances for winning accounts
       const userDocSnaps = [];
       for (const userId of Object.keys(userPayouts)) {
         const userRef = doc(db, "users", userId);
@@ -554,13 +553,13 @@ window.resolvePoll = async function(pollId) {
         if (userSnap.exists()) {
           userDocSnaps.push({
             ref: userRef,
-            currentBalance: userSnap.data().balance || 0,
+            currentBalance: Number(userSnap.data().balance) || 0,
             payout: userPayouts[userId]
           });
         }
       }
 
-      // 3. WRITE PHASE: Apply updates after all reads completed
+      // 3. WRITE PHASE: Apply updates after all reads finish
       transaction.update(pollDocRef, { isOpen: false });
 
       for (const winner of userDocSnaps) {
