@@ -12,6 +12,30 @@
   </style>
 </head>
 <body>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBVhhdmv0oszNRVUCHlBZoLwkyWxhpW-3U",
+    authDomain: "silkscreen-betting.firebaseapp.com",
+    databaseURL: "https://silkscreen-betting-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "silkscreen-betting",
+    storageBucket: "silkscreen-betting.firebasestorage.app",
+    messagingSenderId: "193124110923",
+    appId: "1:193124110923:web:4892d8f23fa338d31033ce",
+    measurementId: "G-ZQ26EVG86R"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 
   <h1>Pirate Polls</h1>
   
