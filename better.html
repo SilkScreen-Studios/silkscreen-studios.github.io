@@ -353,49 +353,57 @@
     });
 
     function renderPollCard(pollId, poll) {
-      const card = document.createElement("div");
-      card.className = "card poll-card";
-      
-      let optionsHtml = "";
-      poll.options.forEach((opt, index) => {
-        optionsHtml += `
-          <div class="option">
-            <input type="radio" name="poll-opt-${pollId}" value="${index}" id="opt-${pollId}-${index}">
-            <label for="opt-${pollId}-${index}">${opt}</label>
-          </div>`;
-      });
+  const card = document.createElement("div");
+  card.className = "card poll-card";
+  
+  // Calculate total pot size
+  const bets = poll.bets || [];
+  const totalPot = bets.reduce((sum, b) => sum + b.amount, 0);
 
-      let adminControlsHtml = "";
-      if (isAdmin) {
-        let adminOptionsHtml = "";
-        poll.options.forEach((opt, index) => {
-          adminOptionsHtml += `<option value="${index}">${opt}</option>`;
-        });
+  let optionsHtml = "";
+  poll.options.forEach((opt, index) => {
+    const optionBets = bets.filter(b => b.optionIndex === index);
+    const optionPool = optionBets.reduce((sum, b) => sum + b.amount, 0);
+    
+    optionsHtml += `
+      <div class="option">
+        <input type="radio" name="poll-opt-${pollId}" value="${index}" id="opt-${pollId}-${index}">
+        <label for="opt-${pollId}-${index}">${opt} <small style="color:#666;">(${optionPool} 🪙 pool)</small></label>
+      </div>`;
+  });
 
-        adminControlsHtml = `
-          <hr>
-          <div style="background: #e9ecef; padding: 0.5rem; border-radius: 4px;">
-            <small><strong>Admin Action:</strong> Resolve Poll</small>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
-              <select id="resolve-opt-${pollId}" style="margin: 0;">${adminOptionsHtml}</select>
-              <button class="btn-secondary" onclick="resolvePoll('${pollId}')" style="margin: 0; white-space: nowrap;">Pay Out & Close</button>
-            </div>
-          </div>`;
-      }
+  let adminControlsHtml = "";
+  if (isAdmin) {
+    let adminOptionsHtml = "";
+    poll.options.forEach((opt, index) => {
+      adminOptionsHtml += `<option value="${index}">${opt}</option>`;
+    });
 
-      card.innerHTML = `
-        <h3 style="margin-top:0;">${poll.question}</h3>
-        <div>${optionsHtml}</div>
-        <div class="bet-container">
-          <input type="number" id="bet-amount-${pollId}" value="10" min="1" placeholder="Wager">
-          <button onclick="placeBet('${pollId}')">Place Bet</button>
+    adminControlsHtml = `
+      <hr>
+      <div style="background: #e9ecef; padding: 0.5rem; border-radius: 4px;">
+        <small><strong>Admin Action:</strong> Resolve Poll</small>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+          <select id="resolve-opt-${pollId}" style="margin: 0;">${adminOptionsHtml}</select>
+          <button class="btn-secondary" onclick="resolvePoll('${pollId}')" style="margin: 0; white-space: nowrap;">Split Pot & Close</button>
         </div>
-        <p id="status-${pollId}" style="font-weight: bold; margin-bottom:0;"></p>
-        ${adminControlsHtml}
-      `;
+      </div>`;
+  }
 
-      return card;
-    }
+  card.innerHTML = `
+    <h3 style="margin-top:0; margin-bottom: 0.25rem;">${poll.question}</h3>
+    <div style="font-size: 0.9rem; color: #28a745; font-weight: bold; margin-bottom: 0.75rem;">💰 Total Pot: ${totalPot} Doubloons</div>
+    <div>${optionsHtml}</div>
+    <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem;">
+      <input type="number" id="bet-amount-${pollId}" value="10" min="1" placeholder="Wager" style="width: 100px; margin: 0;">
+      <button onclick="placeBet('${pollId}')" style="margin: 0;">Place Bet</button>
+    </div>
+    <p id="status-${pollId}" style="font-weight: bold; margin-bottom:0;"></p>
+    ${adminControlsHtml}
+  `;
+
+  return card;
+}
 
     // Place Bet for specific poll ID
     window.placeBet = async function(pollId) {
