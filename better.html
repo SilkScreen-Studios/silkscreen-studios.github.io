@@ -23,81 +23,135 @@
     .leaderboard-rank { font-weight: bold; width: 30px; }
     .leaderboard-name { flex-grow: 1; font-weight: 500; }
     .leaderboard-balance { font-weight: bold; color: #d97706; }
+
+    /* Passcode Overlay */
+    #gate-screen { max-width: 400px; margin: 5rem auto; text-align: center; }
+    #main-app { display: none; }
   </style>
 </head>
 <body>
 
-  <h1>The Bois Betting Station</h1>
-  
-  <!-- User Profile & Status Card -->
-  <div class="card">
-    <div style="float: right;">
-      <button id="admin-login-btn" onclick="toggleAdminAuthForm()" class="btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Admin Login</button>
-    </div>
-    <strong>User ID:</strong> <span id="user-id">Authenticating...</span><br>
-    <strong>Your Balance:</strong> <span id="balance">0</span> Doubloons
+  <!-- Access Passcode Screen -->
+  <div id="gate-screen" class="card">
+    <h2>🔒 Protected Site</h2>
+    <p>Enter the secret passcode to access Pirate Polls:</p>
+    <input type="password" id="passcode-input" placeholder="Enter Passcode" style="text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
+    <button onclick="checkPasscode()" style="width: 100%;">Enter Site</button>
+    <p id="gate-error" style="color: #dc3545; font-weight: bold; margin-top: 0.5rem;"></p>
+  </div>
+
+  <!-- Main Website Content -->
+  <div id="main-app">
+    <h1>🏴‍☠️ Pirate Polls</h1>
     
-    <div style="margin-top: 1rem;">
-      <label for="display-name"><strong>Your Name:</strong></label>
-      <div style="display: flex; gap: 0.5rem;">
-        <input type="text" id="display-name" placeholder="Enter your real name" style="margin-bottom: 0;">
-        <button onclick="updateDisplayName()" style="margin-top: 0; white-space: nowrap;">Save Name</button>
+    <!-- User Profile & Status Card -->
+    <div class="card">
+      <div style="float: right;">
+        <button id="admin-login-btn" onclick="toggleAdminAuthForm()" class="btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Admin Login</button>
       </div>
-      <small id="name-status" style="color: #28a745; font-weight: bold;"></small>
+      <strong>User ID:</strong> <span id="user-id">Authenticating...</span><br>
+      <strong>Your Balance:</strong> <span id="balance">0</span> Doubloons
+      
+      <div style="margin-top: 1rem;">
+        <label for="display-name"><strong>Your Pirate Name:</strong></label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="display-name" placeholder="Enter your pirate name" style="margin-bottom: 0;">
+          <button onclick="updateDisplayName()" style="margin-top: 0; white-space: nowrap;">Save Name</button>
+        </div>
+        <small id="name-status" style="font-weight: bold;"></small>
+      </div>
+    </div>
+
+    <!-- Admin Login Form -->
+    <div class="card" id="admin-auth-card" style="display: none; background: #fff3cd; border-color: #ffeeba;">
+      <h4 style="margin-top:0;">Admin Sign In</h4>
+      <input type="text" id="admin-email" placeholder="Admin Email">
+      <input type="password" id="admin-pass" placeholder="Admin Password">
+      <button onclick="adminLogin()">Login as Admin</button>
+    </div>
+
+    <!-- Active Poll Card -->
+    <div class="card" id="poll-container">
+      <h2 id="poll-question" style="margin-top:0;">Loading poll...</h2>
+      <div id="options-list"></div>
+      <br>
+      <label for="bet-amount"><strong>Wager Amount:</strong></label>
+      <input type="number" id="bet-amount" value="10" min="1">
+      <button id="submit-bet" onclick="placeBet()" disabled>Place Bet</button>
+      <p id="user-status" style="font-weight: bold; color: #28a745;"></p>
+    </div>
+
+    <!-- Doubloon Leaderboard Card -->
+    <div class="card">
+      <h3 style="margin-top:0;">🏆 Top Pirate Leaderboard</h3>
+      <ul id="leaderboard" class="leaderboard-list">
+        <li style="color: #666;">Loading rankings...</li>
+      </ul>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div class="card admin" id="admin-dashboard">
+      <h3 style="margin-top:0;">👑 Admin Dashboard</h3>
+      
+      <h4>Create New Poll</h4>
+      <label for="new-question">Question:</label>
+      <input type="text" id="new-question" placeholder="e.g., Which ship is the fastest?">
+      
+      <label>Options (at least 2):</label>
+      <div id="new-options-container">
+        <input type="text" class="new-option-input" placeholder="Option 1">
+        <input type="text" class="new-option-input" placeholder="Option 2">
+      </div>
+      <button type="button" class="btn-secondary" onclick="addOptionInput()">+ Add Option</button>
+      <br><br>
+      <button onclick="createNewPoll()">Publish New Poll</button>
+      
+      <hr>
+      
+      <h4>Resolve Active Poll</h4>
+      <label for="admin-winner">Select Winning Option:</label>
+      <select id="admin-winner"></select>
+      <button onclick="resolvePoll()" class="btn-secondary">Close Poll & Pay Out</button>
+
+      <hr>
+
+      <h4>Account Management</h4>
+      <button type="button" class="btn-secondary" onclick="deleteUnchangedAccounts()">Delete All Unused 'Pirate_' Accounts</button>
+      <p><small>Deletes accounts that still have default names and haven't bet or placed custom names.</small></p>
     </div>
   </div>
 
-  <!-- Admin Login Form -->
-  <div class="card" id="admin-auth-card" style="display: none; background: #fff3cd; border-color: #ffeeba;">
-    <h4 style="margin-top:0;">Admin Sign In</h4>
-    <input type="text" id="admin-email" placeholder="Admin Email">
-    <input type="password" id="admin-pass" placeholder="Admin Password">
-    <button onclick="adminLogin()">Login as Admin</button>
-  </div>
+  <!-- Passcode Logic Script -->
+  <script>
+    const SITE_PASSCODE = "RSTFCY";
 
-  <!-- Active Poll Card -->
-  <div class="card" id="poll-container">
-    <h2 id="poll-question" style="margin-top:0;">Loading poll...</h2>
-    <div id="options-list"></div>
-    <br>
-    <label for="bet-amount"><strong>Wager Amount:</strong></label>
-    <input type="number" id="bet-amount" value="10" min="1">
-    <button id="submit-bet" onclick="placeBet()" disabled>Place Bet</button>
-    <p id="user-status" style="font-weight: bold; color: #28a745;"></p>
-  </div>
+    function checkPasscode() {
+      const input = document.getElementById("passcode-input").value.trim();
+      const error = document.getElementById("gate-error");
+      
+      if (input === SITE_PASSCODE) {
+        localStorage.setItem("site_unlocked", "true");
+        showApp();
+      } else {
+        error.innerText = "Incorrect passcode!";
+      }
+    }
 
-  <!-- Doubloon Leaderboard Card -->
-  <div class="card">
-    <h3 style="margin-top:0;">🏆 Top Bois Leaderboard</h3>
-    <ul id="leaderboard" class="leaderboard-list">
-      <li style="color: #666;">Loading rankings...</li>
-    </ul>
-  </div>
+    function showApp() {
+      document.getElementById("gate-screen").style.display = "none";
+      document.getElementById("main-app").style.display = "block";
+    }
 
-  <!-- Admin Dashboard -->
-  <div class="card admin" id="admin-dashboard">
-    <h3 style="margin-top:0;">👑 Admin Dashboard</h3>
-    
-    <h4>Create New Poll</h4>
-    <label for="new-question">Question:</label>
-    <input type="text" id="new-question" placeholder="e.g., Which ship is the fastest?">
-    
-    <label>Options (at least 2):</label>
-    <div id="new-options-container">
-      <input type="text" class="new-option-input" placeholder="Option 1">
-      <input type="text" class="new-option-input" placeholder="Option 2">
-    </div>
-    <button type="button" class="btn-secondary" onclick="addOptionInput()">+ Add Option</button>
-    <br><br>
-    <button onclick="createNewPoll()">Publish New Poll</button>
-    
-    <hr>
-    
-    <h4>Resolve Active Poll</h4>
-    <label for="admin-winner">Select Winning Option:</label>
-    <select id="admin-winner"></select>
-    <button onclick="resolvePoll()" class="btn-secondary">Close Poll & Pay Out</button>
-  </div>
+    // Auto-unlock if successfully entered previously
+    if (localStorage.getItem("site_unlocked") === "true") {
+      showApp();
+    }
+
+    // Allow pressing Enter key to submit passcode
+    document.getElementById("passcode-input")?.addEventListener("keyup", function(e) {
+      if (e.key === "Enter") checkPasscode();
+    });
+  </script>
 
   <!-- Firebase Modular SDKs -->
   <script type="module">
@@ -106,11 +160,11 @@
       getAuth, signInAnonymously, signInWithEmailAndPassword, onAuthStateChanged 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
-      getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, runTransaction, arrayUnion, collection, query, orderBy, limit 
+      getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, runTransaction, arrayUnion, collection, query, orderBy, limit, where, getDocs, writeBatch 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     // 1. REPLACE WITH YOUR FIREBASE CONFIG KEYS
-   const firebaseConfig = {
+    const firebaseConfig = {
       apiKey: "AIzaSyBVhhdmv0oszNRVUCHlBZoLwkyWxhpW-3U",
       authDomain: "silkscreen-betting.firebaseapp.com",
       databaseURL: "https://silkscreen-betting-default-rtdb.europe-west1.firebasedatabase.app",
@@ -120,7 +174,6 @@
       appId: "1:193124110923:web:4892d8f23fa338d31033ce",
       measurementId: "G-ZQ26EVG86R"
 };
-
     // Replace with your exact Firebase Admin email
     const ADMIN_EMAIL = "billy.egmc@gmail.com"; 
 
@@ -176,20 +229,46 @@
       }
     });
 
-    // Save Display Name to Firestore
+    // Save Display Name to Firestore with Duplicate Checking
     window.updateDisplayName = async function() {
       if (!currentUser) return;
       const nameInput = document.getElementById("display-name").value.trim();
       if (!nameInput) return alert("Please enter a valid name.");
+      
+      if (nameInput.length < 3) return alert("Name must be at least 3 characters long.");
+      if (nameInput.length > 20) return alert("Name cannot exceed 20 characters.");
 
-      const userDocRef = doc(db, "users", currentUser.uid);
+      const status = document.getElementById("name-status");
+      status.style.color = "#6c757d";
+      status.innerText = "Checking availability...";
+
       try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("displayName", "==", nameInput));
+        const querySnapshot = await getDocs(q);
+
+        let nameTaken = false;
+        querySnapshot.forEach((docSnap) => {
+          if (docSnap.id !== currentUser.uid) {
+            nameTaken = true;
+          }
+        });
+
+        if (nameTaken) {
+          status.style.color = "#dc3545";
+          status.innerText = "Name is already taken!";
+          return;
+        }
+
+        const userDocRef = doc(db, "users", currentUser.uid);
         await updateDoc(userDocRef, { displayName: nameInput });
-        const status = document.getElementById("name-status");
-        status.innerText = "Saved!";
-        setTimeout(() => { status.innerText = ""; }, 2000);
+
+        status.style.color = "#28a745";
+        status.innerText = "Name saved!";
+        setTimeout(() => { status.innerText = ""; }, 3000);
       } catch (err) {
-        alert("Failed to save name: " + err.message);
+        status.style.color = "#dc3545";
+        status.innerText = "Failed to save: " + err.message;
       }
     };
 
@@ -400,6 +479,39 @@
         alert("Poll closed and payouts distributed!");
       } catch (err) {
         alert("Resolution failed: " + err);
+      }
+    };
+
+    // Admin Cleanup Function
+    window.deleteUnchangedAccounts = async function() {
+      if (!confirm("Are you sure you want to delete all accounts that haven't customized their names?")) return;
+
+      try {
+        const usersRef = collection(db, "users");
+        const snapshot = await getDocs(usersRef);
+        
+        let deletedCount = 0;
+        const batch = writeBatch(db);
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const name = data.displayName || "";
+
+          if (name.startsWith("Pirate_") && docSnap.id !== currentUser.uid) {
+            batch.delete(doc(db, "users", docSnap.id));
+            deletedCount++;
+          }
+        });
+
+        if (deletedCount === 0) {
+          alert("No default 'Pirate_' accounts found to delete.");
+          return;
+        }
+
+        await batch.commit();
+        alert(`Successfully deleted ${deletedCount} unused accounts!`);
+      } catch (err) {
+        alert("Error deleting accounts: " + err.message);
       }
     };
   </script>
