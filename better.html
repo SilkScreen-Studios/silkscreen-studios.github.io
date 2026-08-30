@@ -123,34 +123,41 @@
 
   <!-- Passcode Logic Script -->
   <script>
-    const SITE_PASSCODE = "RSTFCY";
+  const SITE_PASSCODE = "RSTFCY";
 
-    function checkPasscode() {
-      const input = document.getElementById("passcode-input").value.trim();
-      const error = document.getElementById("gate-error");
-      
-      if (input === SITE_PASSCODE) {
-        localStorage.setItem("site_unlocked", "true");
-        showApp();
-      } else {
-        error.innerText = "Incorrect passcode!";
-      }
+  function checkPasscode() {
+    const input = document.getElementById("passcode-input").value.trim();
+    const error = document.getElementById("gate-error");
+    
+    if (input === SITE_PASSCODE) {
+      localStorage.setItem("site_unlocked", "true");
+      unlockAndInitialize();
+    } else {
+      error.innerText = "Incorrect passcode!";
     }
+  }
 
-    function showApp() {
-      document.getElementById("gate-screen").style.display = "none";
-      document.getElementById("main-app").style.display = "block";
+  function unlockAndInitialize() {
+    document.getElementById("gate-screen").style.display = "none";
+    document.getElementById("main-app").style.display = "block";
+    
+    // Boot up Firebase ONLY after passcode is verified
+    if (window.initFirebaseApp) {
+      window.initFirebaseApp();
     }
+  }
 
+  // Auto-unlock if successfully entered previously in this browser
+  window.addEventListener("DOMContentLoaded", () => {
     if (localStorage.getItem("site_unlocked") === "true") {
-      showApp();
+      unlockAndInitialize();
     }
+  });
 
-    document.getElementById("passcode-input")?.addEventListener("keyup", function(e) {
-      if (e.key === "Enter") checkPasscode();
-    });
-  </script>
-
+  document.getElementById("passcode-input")?.addEventListener("keyup", function(e) {
+    if (e.key === "Enter") checkPasscode();
+  });
+</script>
   <!-- Firebase Modular SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -183,7 +190,13 @@
     let isAdmin = false;
     let currentActivePollCount = 0;
 
-    // Auth State
+    // Add this wrapper function around your Firebase auth and snapshot listeners:
+  window.initFirebaseApp = function() {
+    // Prevents running setup twice if already initialized
+    if (window.isFirebaseStarted) return;
+    window.isFirebaseStarted = true;
+
+    // --- PASTE YOUR EXISTING onAuthStateChanged BLOCK HERE ---
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUser = user;
@@ -224,6 +237,68 @@
         signInAnonymously(auth).catch(err => console.error("Auth error:", err));
       }
     });
+
+    // --- PASTE YOUR EXISTING Leaderboard onSnapshot HERE ---
+    const leaderboardQuery = query(collection(db, "users"), orderBy("balance", "desc"), limit(10));
+    onSnapshot(leaderboardQuery, (snapshot) => {
+      const listEl = document.getElementById("leaderboard");
+      listEl.innerHTML = "";
+
+      if (snapshot.empty) {
+        listEl.innerHTML = "<li>No players yet!</li>";
+        return;
+      }
+
+      let rank = 1;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const name = data.displayName || ("Pirate_" + docSnap.id.substring(0, 5));
+        const balance = data.balance !== undefined ? data.balance : 0;
+
+        const li = document.createElement("li");
+        li.className = "leaderboard-item";
+        li.innerHTML = `
+          <span class="leaderboard-rank">#${rank}</span>
+          <span class="leaderboard-name">${name}</span>
+          <span class="leaderboard-balance">${balance} 🪙</span>
+        `;
+        listEl.appendChild(li);
+        rank++;
+      });
+    });
+
+    // --- PASTE YOUR EXISTING Polls onSnapshot HERE ---
+    const pollsQuery = query(collection(db, "polls"), where("isOpen", "==", true));
+    onSnapshot(pollsQuery, (snapshot) => {
+      const pollsListContainer = document.getElementById("polls-list");
+      pollsListContainer.innerHTML = "";
+      
+      currentActivePollCount = snapshot.size;
+      document.getElementById("active-poll-count").innerText = currentActivePollCount;
+
+      const createBtn = document.getElementById("create-poll-btn");
+      const warning = document.getElementById("poll-limit-warning");
+
+      if (currentActivePollCount >= 4) {
+        createBtn.disabled = true;
+        warning.style.display = "block";
+      } else {
+        createBtn.disabled = false;
+        warning.style.display = "none";
+      }
+
+      if (snapshot.empty) {
+        pollsListContainer.innerHTML = "<p>No active polls at the moment.</p>";
+        return;
+      }
+
+      snapshot.forEach((docSnap) => {
+        const poll = docSnap.data();
+        const pollId = docSnap.id;
+        pollsListContainer.appendChild(renderPollCard(pollId, poll));
+      });
+    });
+  }; // Don't forget to close the wrapper function!
 
     // Save Display Name
     window.updateDisplayName = async function() {
@@ -266,35 +341,6 @@
       }
     };
 
-    // Live Leaderboard
-    const leaderboardQuery = query(collection(db, "users"), orderBy("balance", "desc"), limit(10));
-    onSnapshot(leaderboardQuery, (snapshot) => {
-      const listEl = document.getElementById("leaderboard");
-      listEl.innerHTML = "";
-
-      if (snapshot.empty) {
-        listEl.innerHTML = "<li>No players yet!</li>";
-        return;
-      }
-
-      let rank = 1;
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const name = data.displayName || ("Pirate_" + docSnap.id.substring(0, 5));
-        const balance = data.balance !== undefined ? data.balance : 0;
-
-        const li = document.createElement("li");
-        li.className = "leaderboard-item";
-        li.innerHTML = `
-          <span class="leaderboard-rank">#${rank}</span>
-          <span class="leaderboard-name">${name}</span>
-          <span class="leaderboard-balance">${balance} 🪙</span>
-        `;
-        listEl.appendChild(li);
-        rank++;
-      });
-    });
-
     // Admin Auth
     window.toggleAdminAuthForm = function() {
       const card = document.getElementById("admin-auth-card");
@@ -321,39 +367,6 @@
         alert("Admin Login Failed: " + err.message);
       }
     };
-
-    // 4. Live Multi-Poll Listener (Supports up to 4 concurrent polls)
-    const pollsQuery = query(collection(db, "polls"), where("isOpen", "==", true), orderBy("createdAt", "desc"), limit(4));
-    
-    onSnapshot(pollsQuery, (snapshot) => {
-      const pollsListContainer = document.getElementById("polls-list");
-      pollsListContainer.innerHTML = "";
-      
-      currentActivePollCount = snapshot.size;
-      document.getElementById("active-poll-count").innerText = currentActivePollCount;
-
-      const createBtn = document.getElementById("create-poll-btn");
-      const warning = document.getElementById("poll-limit-warning");
-
-      if (currentActivePollCount >= 4) {
-        createBtn.disabled = true;
-        warning.style.display = "block";
-      } else {
-        createBtn.disabled = false;
-        warning.style.display = "none";
-      }
-
-      if (snapshot.empty) {
-        pollsListContainer.innerHTML = "<p>No active polls at the moment.</p>";
-        return;
-      }
-
-      snapshot.forEach((docSnap) => {
-        const poll = docSnap.data();
-        const pollId = docSnap.id;
-        pollsListContainer.appendChild(renderPollCard(pollId, poll));
-      });
-    });
 
     function renderPollCard(pollId, poll) {
   const card = document.createElement("div");
