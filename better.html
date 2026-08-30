@@ -122,42 +122,76 @@
   </div>
 
   <!-- Passcode Logic Script -->
-  <script>
-  const SITE_PASSCODE = "RSTFCY";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-  function checkPasscode() {
-    const input = document.getElementById("passcode-input").value.trim();
-    const error = document.getElementById("gate-error");
-    
-    if (input === SITE_PASSCODE) {
-      localStorage.setItem("site_unlocked", "true");
-      unlockAndInitialize();
-    } else {
-      error.innerText = "Incorrect passcode!";
+    // PASTE YOUR ACTUAL firebaseConfig HERE (same one used in your main script)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBVhhdmv0oszNRVUCHlBZoLwkyWxhpW-3U",
+      authDomain: "silkscreen-betting.firebaseapp.com",
+      databaseURL: "https://silkscreen-betting-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "silkscreen-betting",
+      storageBucket: "silkscreen-betting.firebasestorage.app",
+      messagingSenderId: "193124110923",
+      appId: "1:193124110923:web:4892d8f23fa338d31033ce",
+      measurementId: "G-ZQ26EVG86R"
+    };
+
+    const app = initializeApp(firebaseConfig, "passcodeCheckApp");
+    const db = getFirestore(app);
+
+    async function checkPasscode() {
+      const input = document.getElementById("passcode-input").value.trim();
+      const error = document.getElementById("gate-error");
+      
+      if (!input) {
+        error.innerText = "Please enter a passcode.";
+        return;
+      }
+
+      try {
+        // Fetch passcode from Firestore config/gate document
+        const configDocRef = doc(db, "config", "gate");
+        const configSnap = await getDoc(configDocRef);
+
+        if (configSnap.exists() && configSnap.data().passcode === input) {
+          localStorage.setItem("site_unlocked", "true");
+          unlockAndInitialize();
+        } else {
+          error.innerText = "Incorrect passcode!";
+        }
+      } catch (err) {
+        console.error(err);
+        error.innerText = "Error verifying passcode.";
+      }
     }
-  }
 
-  function unlockAndInitialize() {
-    document.getElementById("gate-screen").style.display = "none";
-    document.getElementById("main-app").style.display = "block";
-    
-    // Boot up Firebase ONLY after passcode is verified
-    if (window.initFirebaseApp) {
-      window.initFirebaseApp();
+    function unlockAndInitialize() {
+      document.getElementById("gate-screen").style.display = "none";
+      document.getElementById("main-app").style.display = "block";
+      
+      // Call the wrapper function we created in Step 3
+      if (window.initFirebaseApp) {
+        window.initFirebaseApp();
+      }
     }
-  }
 
-  // Auto-unlock if successfully entered previously in this browser
-  window.addEventListener("DOMContentLoaded", () => {
-    if (localStorage.getItem("site_unlocked") === "true") {
-      unlockAndInitialize();
-    }
-  });
+    // Attach click event to the Enter button
+    document.getElementById("passcode-submit-btn")?.addEventListener("click", checkPasscode);
 
-  document.getElementById("passcode-input")?.addEventListener("keyup", function(e) {
-    if (e.key === "Enter") checkPasscode();
-  });
-</script>
+    // Allow pressing "Enter" key inside the input box
+    document.getElementById("passcode-input")?.addEventListener("keyup", function(e) {
+      if (e.key === "Enter") checkPasscode();
+    });
+
+    // Auto-unlock if user typed it correctly previously in this browser
+    window.addEventListener("DOMContentLoaded", () => {
+      if (localStorage.getItem("site_unlocked") === "true") {
+        unlockAndInitialize();
+      }
+    });
+  </script>
   <!-- Firebase Modular SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
