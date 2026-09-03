@@ -328,17 +328,17 @@ onSnapshot(pollsQuery, (snapshot) => {
     // Admin Delete Poll Function: Deletes directly from Firestore
     window.deletePoll = async function(pollId) {
       if (!confirm("Are you sure you want to permanently delete this poll?")) return;
-    };
-
-  try {
-    const pollRef = doc(db, "polls", pollId);
-    await deleteDoc(pollRef);
-    // Note: No need to manually remove HTML elements here because 
-    // onSnapshot automatically catches the Firestore deletion and updates the screen!
-  } catch (err) {
-    alert("Failed to delete poll: " + err.message);
-  }
-}
+      
+      try {
+        const pollRef = doc(db, "polls", pollId);
+        await deleteDoc(pollRef);
+        // Note: No need to manually remove HTML elements here because 
+        // onSnapshot automatically catches the Firestore deletion and updates the screen!
+      } catch (err) {
+        alert("Failed to delete poll: " + err.message);
+      }
+    }
+  };
 
     // Save Display Name
     window.updateDisplayName = async function() {
