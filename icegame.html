@@ -344,6 +344,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, doc, runTransaction, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+    // REPLACE THIS WITH YOUR FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyAS1ZNNiLjnFNwxv-Y4CNDf4sF_-LNiXDs",
       authDomain: "silkscreen-icething.firebaseapp.com",
@@ -351,7 +352,6 @@
       storageBucket: "silkscreen-icething.firebasestorage.app",
       messagingSenderId: "657704827624",
       appId: "1:657704827624:web:e4669f8f74c38f8c87e75d",
-      measurementId: "G-QGV71K4CB7"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -363,41 +363,22 @@
     const closeLbBtn = document.getElementById('closeLbBtn');
 
     function toggleSidebar(open) {
-      if (open) {
-        sidebar.classList.add('active');
-      } else {
-        sidebar.classList.remove('active');
-      }
+      sidebar.classList.toggle('active', open);
     }
 
-    openLbBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleSidebar(true);
-    });
-    openLbBtn.addEventListener('touchend', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      toggleSidebar(true);
-    });
+    openLbBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
+    openLbBtn.addEventListener('touchend', (e) => { e.stopPropagation(); e.preventDefault(); toggleSidebar(true); });
+    closeLbBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(false); });
+    closeLbBtn.addEventListener('touchend', (e) => { e.stopPropagation(); e.preventDefault(); toggleSidebar(false); });
 
-    closeLbBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleSidebar(false);
-    });
-    closeLbBtn.addEventListener('touchend', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      toggleSidebar(false);
-    });
-
-    // User Identification
+    // Local Ownership ID (Permanent browser token to prove who owns the username)
     let localUserKey = localStorage.getItem('drift_userKey');
     if (!localUserKey) {
-      localUserKey = 'key_' + Math.random().toString(36).substr(2, 9);
+      localUserKey = 'key_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
       localStorage.setItem('drift_userKey', localUserKey);
     }
 
-    let currentUsername = localStorage.getItem('drift_username') || ('Player' + Math.floor(Math.random() * 899 + 100));
+    let currentUsername = localStorage.getItem('drift_username') || ('Player' + Math.floor(Math.random() * 8999 + 1000));
     let userHighScore = parseInt(localStorage.getItem('drift_highScore') || '0');
 
     const usernameInput = document.getElementById('usernameInput');
@@ -406,74 +387,78 @@
 
     usernameInput.value = currentUsername;
 
-    saveUserBtn.addEventListener('click', async () => {
-      const inputName = usernameInput.value.trim();
-      if (!inputName) return;
+    /**
+     * ATOMIC USERNAME CLAIMING
+     * Guarantees no two users can share the same name (case-insensitive)
+     */
+    async function claimUsername(desiredName, newScore = userHighScore) {
+      const trimmedName = desiredName.trim();
+      if (!trimmedName) return false;
 
-      const docId = inputName.toLowerCase();
+      const newDocId = trimmedName.toLowerCase();
       const oldDocId = currentUsername.toLowerCase();
 
       try {
         await runTransaction(db, async (transaction) => {
-          const nameRef = doc(db, "leaderboard", docId);
-          const nameDoc = await transaction.get(nameRef);
+          const newRef = doc(db, "leaderboard", newDocId);
+          const newDoc = await transaction.get(newRef);
 
-          if (nameDoc.exists() && nameDoc.data().ownerKey !== localUserKey) {
+          // Reject if document exists and belongs to a DIFFERENT browser key
+          if (newDoc.exists() && newDoc.data().ownerKey !== localUserKey) {
             throw new Error("TAKEN");
           }
 
-          if (oldDocId !== docId) {
+          // If changing names, erase the old username record from Firebase
+          if (oldDocId !== newDocId) {
             const oldRef = doc(db, "leaderboard", oldDocId);
             transaction.delete(oldRef);
           }
 
-          transaction.set(nameRef, {
-            username: inputName,
-            score: userHighScore,
+          // Preserve the highest score achieved
+          const existingScore = newDoc.exists() ? (newDoc.data().score || 0) : 0;
+          const finalScore = Math.max(existingScore, newScore);
+
+          transaction.set(newRef, {
+            username: trimmedName,
+            score: finalScore,
             ownerKey: localUserKey,
             timestamp: Date.now()
           }, { merge: true });
         });
 
-        currentUsername = inputName;
+        currentUsername = trimmedName;
         localStorage.setItem('drift_username', currentUsername);
-        alert("Username updated!");
+        return true;
       } catch (error) {
         if (error.message === "TAKEN") {
-          alert("That username is already taken! Choose another.");
+          alert(`"${trimmedName}" is already taken! Please pick a different name.`);
           usernameInput.value = currentUsername;
         } else {
-          console.error("Error updating username:", error);
+          console.error("Error claiming username:", error);
         }
-      }
-    });
-
-    async function syncScoreToFirebase(score) {
-      if (score <= 0) return;
-      const docId = currentUsername.toLowerCase();
-      
-      try {
-        await runTransaction(db, async (transaction) => {
-          const userRef = doc(db, "leaderboard", docId);
-          const userDoc = await transaction.get(userRef);
-
-          if (!userDoc.exists() || userDoc.data().ownerKey === localUserKey) {
-            const currentBest = userDoc.exists() ? (userDoc.data().score || 0) : 0;
-            if (score > currentBest) {
-              transaction.set(userRef, {
-                username: currentUsername,
-                score: score,
-                ownerKey: localUserKey,
-                timestamp: Date.now()
-              }, { merge: true });
-            }
-          }
-        });
-      } catch (e) {
-        console.error("Score sync failed:", e);
+        return false;
       }
     }
 
+    // Attempt to register initial randomized name right away so it isn't stolen
+    claimUsername(currentUsername);
+
+    // Save Button Listener
+    saveUserBtn.addEventListener('click', async () => {
+      const inputName = usernameInput.value.trim();
+      if (inputName && inputName !== currentUsername) {
+        const success = await claimUsername(inputName);
+        if (success) alert("Username updated successfully!");
+      }
+    });
+
+    // Score Syncing during Gameplay
+    async function syncScoreToFirebase(score) {
+      if (score <= 0) return;
+      await claimUsername(currentUsername, score);
+    }
+
+    // Real-Time Leaderboard Fetch
     const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(10));
     onSnapshot(q, (snapshot) => {
       leaderboardList.innerHTML = '';
