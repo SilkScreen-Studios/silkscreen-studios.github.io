@@ -315,7 +315,7 @@
 
       <div class="screen-overlay" id="menuScreen">
         <h1 id="menuTitle">DRIFT</h1>
-        <p id="menuDesc">Click anywhere to grapple onto rocks or side walls. Watch out for border rocks along the edges!</p>
+        <p id="menuDesc">Click anywhere to grapple onto rocks or side walls. Avoid direct rock hits!</p>
         <button class="btn" id="startBtn">PLAY</button>
       </div>
     </div>
@@ -357,13 +357,40 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // Sidebar Controls
     const sidebar = document.getElementById('sidebar');
     const openLbBtn = document.getElementById('openLbBtn');
     const closeLbBtn = document.getElementById('closeLbBtn');
 
-    openLbBtn.addEventListener('click', () => sidebar.classList.add('active'));
-    closeLbBtn.addEventListener('click', () => sidebar.classList.remove('active'));
+    function toggleSidebar(open) {
+      if (open) {
+        sidebar.classList.add('active');
+      } else {
+        sidebar.classList.remove('active');
+      }
+    }
 
+    openLbBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSidebar(true);
+    });
+    openLbBtn.addEventListener('touchend', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleSidebar(true);
+    });
+
+    closeLbBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSidebar(false);
+    });
+    closeLbBtn.addEventListener('touchend', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleSidebar(false);
+    });
+
+    // User Identification
     let localUserKey = localStorage.getItem('drift_userKey');
     if (!localUserKey) {
       localUserKey = 'key_' + Math.random().toString(36).substr(2, 9);
@@ -516,7 +543,6 @@
       const radius = 16 + Math.random() * 12;
       let x;
       
-      // 35% chance to spawn a rock directly embedded on the border wall
       if (Math.random() < 0.35) {
         const isOnLeft = Math.random() < 0.5;
         x = isOnLeft ? (radius * 0.4) : (canvas.width - radius * 0.4);
@@ -529,7 +555,7 @@
     }
 
     function handlePointerStart(e) {
-      if (e.target.closest('#sidebar') || e.target.closest('#openLbBtn')) return;
+      if (sidebar.classList.contains('active')) return;
       if (!isPlaying) return;
 
       isPointerDown = true;
@@ -590,8 +616,19 @@
     window.addEventListener('mousemove', handlePointerMove);
     window.addEventListener('mouseup', handlePointerEnd);
 
-    canvas.addEventListener('touchstart', (e) => { handlePointerStart(e); }, { passive: false });
-    window.addEventListener('touchmove', (e) => { handlePointerMove(e); }, { passive: false });
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.target === canvas) {
+        e.preventDefault();
+        handlePointerStart(e);
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (isPointerDown) {
+        handlePointerMove(e);
+      }
+    }, { passive: false });
+
     window.addEventListener('touchend', handlePointerEnd);
 
     startBtn.addEventListener('click', initGame);
@@ -620,7 +657,6 @@
       player.x += player.vx;
       player.y += player.vy;
 
-      // Bounce off walls with increased velocity dampening
       if (player.x - player.radius <= 0) {
         player.x = player.radius;
         player.vx = -player.vx * 0.6;
