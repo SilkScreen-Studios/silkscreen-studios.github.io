@@ -41,7 +41,6 @@
       position: relative;
     }
 
-    /* Game Window Takes Maximum Space */
     #game-container {
       position: relative;
       flex: 1;
@@ -60,7 +59,6 @@
       cursor: crosshair;
     }
 
-    /* Leaderboard Toggle Button (Mobile) */
     .lb-toggle-btn {
       display: none;
       position: absolute;
@@ -79,7 +77,6 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
 
-    /* Leaderboard Sidebar & Drawer */
     #sidebar {
       width: 280px;
       height: 100%;
@@ -198,7 +195,6 @@
       color: #ffffff;
     }
 
-    /* UI Overlay inside Game */
     .ui-overlay {
       position: absolute;
       top: 0;
@@ -265,7 +261,6 @@
       cursor: pointer;
     }
 
-    /* MOBILE / SMALL SCREEN STYLES */
     @media (max-width: 768px) {
       #app-layout {
         padding: 0;
@@ -320,7 +315,7 @@
 
       <div class="screen-overlay" id="menuScreen">
         <h1 id="menuTitle">DRIFT</h1>
-        <p id="menuDesc">Click anywhere to grapple onto rocks or side walls. Avoid direct rock hits!</p>
+        <p id="menuDesc">Click anywhere to grapple onto rocks or side walls. Watch out for border rocks along the edges!</p>
         <button class="btn" id="startBtn">PLAY</button>
       </div>
     </div>
@@ -347,126 +342,126 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, doc, runTransaction, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, runTransaction, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAS1ZNNiLjnFNwxv-Y4CNDf4sF_-LNiXDs",
-  authDomain: "silkscreen-icething.firebaseapp.com",
-  projectId: "silkscreen-icething",
-  storageBucket: "silkscreen-icething.firebasestorage.app",
-  messagingSenderId: "657704827624",
-  appId: "1:657704827624:web:e4669f8f74c38f8c87e75d",
-  measurementId: "G-QGV71K4CB7"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyAS1ZNNiLjnFNwxv-Y4CNDf4sF_-LNiXDs",
+      authDomain: "silkscreen-icething.firebaseapp.com",
+      projectId: "silkscreen-icething",
+      storageBucket: "silkscreen-icething.firebasestorage.app",
+      messagingSenderId: "657704827624",
+      appId: "1:657704827624:web:e4669f8f74c38f8c87e75d",
+      measurementId: "G-QGV71K4CB7"
+    };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-// Local User Identification
-let localUserKey = localStorage.getItem('drift_userKey'); // Used to identify owner
-if (!localUserKey) {
-  localUserKey = 'key_' + Math.random().toString(36).substr(2, 9);
-  localStorage.setItem('drift_userKey', localUserKey);
-}
+    const sidebar = document.getElementById('sidebar');
+    const openLbBtn = document.getElementById('openLbBtn');
+    const closeLbBtn = document.getElementById('closeLbBtn');
 
-let currentUsername = localStorage.getItem('drift_username') || ('Player' + Math.floor(Math.random() * 899 + 100));
-let userHighScore = parseInt(localStorage.getItem('drift_highScore') || '0');
+    openLbBtn.addEventListener('click', () => sidebar.classList.add('active'));
+    closeLbBtn.addEventListener('click', () => sidebar.classList.remove('active'));
 
-const usernameInput = document.getElementById('usernameInput');
-const saveUserBtn = document.getElementById('saveUserBtn');
-const leaderboardList = document.getElementById('leaderboardList');
-
-usernameInput.value = currentUsername;
-
-// Handle Username Change with Uniqueness Check
-saveUserBtn.addEventListener('click', async () => {
-  const inputName = usernameInput.value.trim();
-  if (!inputName) return;
-
-  const docId = inputName.toLowerCase();
-  const oldDocId = currentUsername.toLowerCase();
-
-  try {
-    await runTransaction(db, async (transaction) => {
-      const nameRef = doc(db, "leaderboard", docId);
-      const nameDoc = await transaction.get(nameRef);
-
-      // Check if username is taken by someone else
-      if (nameDoc.exists() && nameDoc.data().ownerKey !== localUserKey) {
-        throw new Error("TAKEN");
-      }
-
-      // If user changed their name, remove old record
-      if (oldDocId !== docId) {
-        const oldRef = doc(db, "leaderboard", oldDocId);
-        transaction.delete(oldRef);
-      }
-
-      // Save/Claim username
-      transaction.set(nameRef, {
-        username: inputName,
-        score: userHighScore,
-        ownerKey: localUserKey,
-        timestamp: Date.now()
-      }, { merge: true });
-    });
-
-    currentUsername = inputName;
-    localStorage.setItem('drift_username', currentUsername);
-    alert("Username updated!");
-  } catch (error) {
-    if (error.message === "TAKEN") {
-      alert("That username is already taken! Choose another.");
-      usernameInput.value = currentUsername;
-    } else {
-      console.error("Error updating username:", error);
+    let localUserKey = localStorage.getItem('drift_userKey');
+    if (!localUserKey) {
+      localUserKey = 'key_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('drift_userKey', localUserKey);
     }
-  }
-});
 
-// Sync high score during gameplay
-async function syncScoreToFirebase(score) {
-  if (score <= 0) return;
-  const docId = currentUsername.toLowerCase();
-  
-  try {
-    await runTransaction(db, async (transaction) => {
-      const userRef = doc(db, "leaderboard", docId);
-      const userDoc = await transaction.get(userRef);
+    let currentUsername = localStorage.getItem('drift_username') || ('Player' + Math.floor(Math.random() * 899 + 100));
+    let userHighScore = parseInt(localStorage.getItem('drift_highScore') || '0');
 
-      // Only update if existing record belongs to player or doesn't exist
-      if (!userDoc.exists() || userDoc.data().ownerKey === localUserKey) {
-        const currentBest = userDoc.exists() ? (userDoc.data().score || 0) : 0;
-        if (score > currentBest) {
-          transaction.set(userRef, {
-            username: currentUsername,
-            score: score,
+    const usernameInput = document.getElementById('usernameInput');
+    const saveUserBtn = document.getElementById('saveUserBtn');
+    const leaderboardList = document.getElementById('leaderboardList');
+
+    usernameInput.value = currentUsername;
+
+    saveUserBtn.addEventListener('click', async () => {
+      const inputName = usernameInput.value.trim();
+      if (!inputName) return;
+
+      const docId = inputName.toLowerCase();
+      const oldDocId = currentUsername.toLowerCase();
+
+      try {
+        await runTransaction(db, async (transaction) => {
+          const nameRef = doc(db, "leaderboard", docId);
+          const nameDoc = await transaction.get(nameRef);
+
+          if (nameDoc.exists() && nameDoc.data().ownerKey !== localUserKey) {
+            throw new Error("TAKEN");
+          }
+
+          if (oldDocId !== docId) {
+            const oldRef = doc(db, "leaderboard", oldDocId);
+            transaction.delete(oldRef);
+          }
+
+          transaction.set(nameRef, {
+            username: inputName,
+            score: userHighScore,
             ownerKey: localUserKey,
             timestamp: Date.now()
           }, { merge: true });
+        });
+
+        currentUsername = inputName;
+        localStorage.setItem('drift_username', currentUsername);
+        alert("Username updated!");
+      } catch (error) {
+        if (error.message === "TAKEN") {
+          alert("That username is already taken! Choose another.");
+          usernameInput.value = currentUsername;
+        } else {
+          console.error("Error updating username:", error);
         }
       }
     });
-  } catch (e) {
-    console.error("Score sync failed:", e);
-  }
-}
 
-// Real-time Leaderboard Updates
-const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(10));
-onSnapshot(q, (snapshot) => {
-  leaderboardList.innerHTML = '';
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    const item = document.createElement('div');
-    item.className = 'leaderboard-item' + (data.ownerKey === localUserKey ? ' you' : '');
-    item.innerHTML = `
-      <span class="player-name">${data.username}</span>
-      <span class="player-score">${data.score}m</span>
-    `;
-    leaderboardList.appendChild(item);
-  });
-});
+    async function syncScoreToFirebase(score) {
+      if (score <= 0) return;
+      const docId = currentUsername.toLowerCase();
+      
+      try {
+        await runTransaction(db, async (transaction) => {
+          const userRef = doc(db, "leaderboard", docId);
+          const userDoc = await transaction.get(userRef);
+
+          if (!userDoc.exists() || userDoc.data().ownerKey === localUserKey) {
+            const currentBest = userDoc.exists() ? (userDoc.data().score || 0) : 0;
+            if (score > currentBest) {
+              transaction.set(userRef, {
+                username: currentUsername,
+                score: score,
+                ownerKey: localUserKey,
+                timestamp: Date.now()
+              }, { merge: true });
+            }
+          }
+        });
+      } catch (e) {
+        console.error("Score sync failed:", e);
+      }
+    }
+
+    const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(10));
+    onSnapshot(q, (snapshot) => {
+      leaderboardList.innerHTML = '';
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const item = document.createElement('div');
+        item.className = 'leaderboard-item' + (data.ownerKey === localUserKey ? ' you' : '');
+        item.innerHTML = `
+          <span class="player-name">${data.username}</span>
+          <span class="player-score">${data.score}m</span>
+        `;
+        leaderboardList.appendChild(item);
+      });
+    });
+
     // --- GAME ENGINE ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -518,14 +513,22 @@ onSnapshot(q, (snapshot) => {
     }
 
     function spawnRock(yPosition) {
-      const margin = 50;
-      const x = margin + Math.random() * (canvas.width - margin * 2);
       const radius = 16 + Math.random() * 12;
+      let x;
+      
+      // 35% chance to spawn a rock directly embedded on the border wall
+      if (Math.random() < 0.35) {
+        const isOnLeft = Math.random() < 0.5;
+        x = isOnLeft ? (radius * 0.4) : (canvas.width - radius * 0.4);
+      } else {
+        const margin = 40;
+        x = margin + Math.random() * (canvas.width - margin * 2);
+      }
+
       rocks.push({ x, y: yPosition, radius });
     }
 
     function handlePointerStart(e) {
-      // Don't register clicks if clicking leaderboard UI buttons
       if (e.target.closest('#sidebar') || e.target.closest('#openLbBtn')) return;
       if (!isPlaying) return;
 
@@ -617,12 +620,13 @@ onSnapshot(q, (snapshot) => {
       player.x += player.vx;
       player.y += player.vy;
 
+      // Bounce off walls with increased velocity dampening
       if (player.x - player.radius <= 0) {
         player.x = player.radius;
-        player.vx = -player.vx * 0.8;
+        player.vx = -player.vx * 0.6;
       } else if (player.x + player.radius >= canvas.width) {
         player.x = canvas.width - player.radius;
-        player.vx = -player.vx * 0.8;
+        player.vx = -player.vx * 0.6;
       }
 
       const targetCameraY = player.y - canvas.height * 0.65;
