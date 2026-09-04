@@ -372,7 +372,7 @@
     closeLbBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(false); });
     closeLbBtn.addEventListener('touchend', (e) => { e.stopPropagation(); e.preventDefault(); toggleSidebar(false); });
 
-    // Local Ownership ID (Permanent browser token to prove who owns the username)
+    // Local Ownership ID
     let localUserKey = localStorage.getItem('drift_userKey');
     if (!localUserKey) {
       localUserKey = 'key_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
@@ -382,16 +382,17 @@
     let currentUsername = localStorage.getItem('drift_username') || ('Player' + Math.floor(Math.random() * 8999 + 1000));
     let userHighScore = parseInt(localStorage.getItem('drift_highScore') || '0');
 
+    // ====================================================================
+    // ADD LOWERCASED USERNAMES TO RESET HERE (e.g. ["exploituser", "cheater2"])
+    // ====================================================================
+    const RESET_USERS = ["exploituser"]; 
+
     const usernameInput = document.getElementById('usernameInput');
     const saveUserBtn = document.getElementById('saveUserBtn');
     const leaderboardList = document.getElementById('leaderboardList');
 
     usernameInput.value = currentUsername;
 
-    /**
-     * ATOMIC USERNAME CLAIMING
-     * Guarantees no two users can share the same name (case-insensitive)
-     */
     async function claimUsername(desiredName, newScore = userHighScore) {
       const trimmedName = desiredName.trim();
       if (!trimmedName) return false;
@@ -399,25 +400,32 @@
       const newDocId = trimmedName.toLowerCase();
       const oldDocId = currentUsername.toLowerCase();
 
+      // Check if this username needs its score reset
+      let targetScore = newScore;
+      if (RESET_USERS.includes(newDocId)) {
+        userHighScore = 0;
+        localStorage.setItem('drift_highScore', '0');
+        targetScore = 0;
+      }
+
       try {
         await runTransaction(db, async (transaction) => {
           const newRef = doc(db, "leaderboard", newDocId);
           const newDoc = await transaction.get(newRef);
 
-          // Reject if document exists and belongs to a DIFFERENT browser key
           if (newDoc.exists() && newDoc.data().ownerKey !== localUserKey) {
             throw new Error("TAKEN");
           }
 
-          // If changing names, erase the old username record from Firebase
           if (oldDocId !== newDocId) {
             const oldRef = doc(db, "leaderboard", oldDocId);
             transaction.delete(oldRef);
           }
 
-          // Preserve the highest score achieved
           const existingScore = newDoc.exists() ? (newDoc.data().score || 0) : 0;
-          const finalScore = Math.max(existingScore, newScore);
+          
+          // Force reset to 0 if reset user, otherwise take the higher score
+          const finalScore = RESET_USERS.includes(newDocId) ? 0 : Math.max(existingScore, targetScore);
 
           transaction.set(newRef, {
             username: trimmedName,
@@ -441,10 +449,8 @@
       }
     }
 
-    // Attempt to register initial randomized name right away so it isn't stolen
     claimUsername(currentUsername);
 
-    // Save Button Listener
     saveUserBtn.addEventListener('click', async () => {
       const inputName = usernameInput.value.trim();
       if (inputName && inputName !== currentUsername) {
@@ -453,7 +459,6 @@
       }
     });
 
-    // Score Syncing during Gameplay
     async function syncScoreToFirebase(score) {
       if (score <= 0) return;
       await claimUsername(currentUsername, score);
@@ -473,6 +478,9 @@
         `;
         leaderboardList.appendChild(item);
       });
+    }, (error) => {
+      console.error("Leaderboard error:", error);
+      leaderboardList.innerHTML = '<div style="color: #666; font-size: 13px;">Unable to load scores</div>';
     });
 
     // --- GAME ENGINE ---
